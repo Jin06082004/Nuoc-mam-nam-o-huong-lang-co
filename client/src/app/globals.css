@@ -646,7 +646,7 @@ h3 { font-size: 1.25rem; }
 .admin-page-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 22px; margin: 0 0 26px; }
 .admin-page-heading h1, .admin-dashboard h1 { margin: 0 0 9px; color: #3f4a30; font-family: "Playfair Display", Georgia, serif; font-size: clamp(2rem, 3.4vw, 3rem); }
 .admin-page-heading p:not(.admin-eyebrow), .admin-muted { margin: 0; color: #716c5f; font-size: .88rem; }
-.admin-toolbar { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; margin: 0 0 12px; }
+.admin-toolbar { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 12px; margin: 0 0 12px; }
 .admin-search, .admin-filter { display: grid; min-width: min(260px, 100%); gap: 5px; color: #716c5f; font-size: .72rem; font-weight: 600; }
 .admin-filter { min-width: 190px; }
 .admin-search input, .admin-filter input, .admin-filter select, .admin-inline-edit input, .admin-form-field input, .admin-form-field select, .admin-form-field textarea, .admin-row-actions select {
