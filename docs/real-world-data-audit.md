@@ -245,6 +245,80 @@ Các bài viết được biên soạn hoàn toàn dựa trên tư liệu lịch
 
 ---
 
+### Bài viết 4: Bỏ bằng Thạc sĩ IT về với lu sành: Lời tâm sự từ đáy lòng của chủ thương hiệu Hương Làng Cổ
+* **Slug URL:** `bo-bang-thac-si-it-ve-voi-lu-sanh-tam-su-bui-thanh-phu`
+* **Danh mục:** Câu chuyện thương hiệu (`cau-chuyen-thuong-hieu`)
+* **Tóm tắt (Excerpt):** Từng trải qua giai đoạn "chiến tranh lạnh" với gia đình vì từ bỏ công việc giảng dạy để về làm mắm, anh Bùi Thanh Phú chia sẻ lý do kiên định giữ nghề và triết lý sâu sắc: "Quê hương trong tôi là mùi nước mắm".
+* **Nguồn tư liệu xác thực:**
+  - Bài phỏng vấn anh Bùi Thanh Phú trên Báo Dân Việt và Thông tấn xã Việt Nam (VietnamPlus).
+  - Vinh danh "Nông dân Việt Nam xuất sắc 40 năm Đổi mới" của Trung ương Hội Nông dân Việt Nam.
+* **Nội dung cốt lõi:**
+  1. Tâm sự của anh Bùi Thanh Phú về khúc rẽ năm 2016: Từ bỏ bục giảng và bằng Thạc sĩ CNTT trường Đại học Bách Khoa để về nối nghiệp xưởng mắm gia đình 4 đời.
+  2. Nỗi niềm của cha mẹ: Từng cực lực phản đối, trải qua những ngày "chiến tranh lạnh" vì không muốn con cái phải chịu cảnh nhọc nhằn, thức khuya dậy sớm đón cá lúc rạng sáng.
+  3. Triết lý làm nghề: "Quê hương là mùi nước mắm" — nỗi sợ di sản 400 năm bị đô thị hóa xóa sổ nếu người trẻ đều rời làng đi tìm việc nhàn hạ.
+  4. Đổi mới bằng tri thức hiện đại: Chuẩn hóa nhãn mác, tem QR truy xuất nguồn gốc, đăng ký bảo hộ thương hiệu Hương Làng Cổ và chứng nhận OCOP 4 sao.
+* **Trạng thái:** `VERIFIED_OFFICIAL` & `VERIFIED_EXTERNAL` (Sẵn sàng xuất bản).
+
+---
+
+### Bài viết 5: Bí quyết chọn cá cơm than tháng Ba và muối Sa Huỳnh ủ kho 1 năm: Tinh hoa trong từng giọt mắm nhĩ
+* **Slug URL:** `bi-quyet-chon-ca-com-than-thang-ba-va-muoi-sa-huynh`
+* **Danh mục:** Văn hóa ẩm thực & Bí quyết (`van-hoa-am-thuc`)
+* **Tóm tắt (Excerpt):** Không phải loại cá nào cũng làm được nước mắm Nam Ô hảo hạng. Khám phá bí quyết chọn cá cơm than béo tròn tháng Ba âm lịch và kỹ thuật trữ muối Sa Huỳnh trên 1 năm để lọc bỏ vị chát đắng tự nhiên.
+* **Nguồn tư liệu xác thực:**
+  - Bí quyết cổ truyền của nghệ nhân làng nghề nước mắm Nam Ô (Sở Du lịch Đà Nẵng, Cục Du lịch Quốc gia).
+* **Nội dung cốt lõi:**
+  1. Câu nói của người nghệ nhân Nam Ô: "Nhất cá, nhì muối, tam lu sành".
+  2. Vụ cá cơm than tháng Ba âm lịch: Thời điểm cá béo mẫm, tròn lẳn, vảy ánh đen bóng, ruột sạch và giàu đạm nhất vùng biển chân đèo Hải Vân.
+  3. Bí quyết ủ muối Sa Huỳnh hạt to trên 1 năm: Để nước ót chát đắng (magie, canxi) rỉ hết, chỉ giữ lại vị mặn thanh thuần khiết.
+  4. Tỷ lệ vàng 3 cá : 1 muối và kỹ thuật ủ lu sành đất nung giúp ổn định nhiệt độ men vi sinh suốt 12-18 tháng.
+* **Trạng thái:** `VERIFIED_EXTERNAL` (Sẵn sàng xuất bản).
+
+---
+
+### Bài viết 6: Trải nghiệm du lịch làng nghề: Một ngày làm nghệ nhân tại xưởng mắm Hương Làng Cổ
+* **Slug URL:** `trai-nghiem-du-lich-lang-nghe-mot-ngay-tai-xuong-huong-lang-co`
+* **Danh mục:** Di sản làng nghề (`di-san-lang-nghe`)
+* **Tóm tắt (Excerpt):** Cơ sở Hương Làng Cổ tại Nam Ô không chỉ là xưởng sản xuất mà còn là điểm đến du lịch trải nghiệm văn hóa sống động, đón hàng ngàn lượt du khách trong nước, quốc tế và học sinh sinh viên đến khám phá nét đẹp di sản.
+* **Nguồn tư liệu xác thực:**
+  - Trung tâm Xúc tiến Du lịch Đà Nẵng (Danang Fantasticity) & Báo Đà Nẵng.
+* **Nội dung cốt lõi:**
+  1. Vị trí xưởng tại Kiệt 884 Nguyễn Lương Bằng (Nam Ô 2, Hòa Hiệp Nam) — không gian thanh bình bên chân đèo Hải Vân.
+  2. Khung cảnh hàng trăm lu sành cổ kính xếp ngay ngắn, thoang thoảng hương mắm lên men tự nhiên.
+  3. Hoạt động trải nghiệm: Học cách phân biệt cá cơm than, tự tay đảo chượp, ngắm từng giọt mắm nhĩ nhỏ qua phễu tre lót vải và nếm giọt mắm tươi mới nguyên bản.
+* **Trạng thái:** `VERIFIED_EXTERNAL` (Sẵn sàng xuất bản).
+
+---
+
+### Bài viết 7: Giải mã hiện tượng nước mắm truyền thống xuống màu sẫm lại sau khi mở nắp: Dấu hiệu của sự nguyên chất
+* **Slug URL:** `hien-tuong-nuoc-mam-truyen-thong-xuong-mau-dau-hieu-nguyen-chat`
+* **Danh mục:** Văn hóa ẩm thực & Bí quyết (`van-hoa-am-thuc`)
+* **Tóm tắt (Excerpt):** Nhiều khách hàng thắc mắc khi thấy chai nước mắm truyền thống chuyển màu sẫm hơn sau một thời gian mở nắp. Đây là phản ứng tự nhiên của đạm cá nguyên chất không phụ gia bảo quản, là bảo chứng cho chất lượng thật.
+* **Nguồn tư liệu xác thực:**
+  - Kiến thức chuyên môn chế biến thủy sản truyền thống và tài liệu kỹ thuật OCOP Đà Nẵng.
+* **Nội dung cốt lõi:**
+  1. Giải đáp thắc mắc của người tiêu dùng về hiện tượng sẫm màu sau khi mở nắp chai.
+  2. Phản ứng hóa học tự nhiên: Sự oxy hóa của acid amin tự nhiên từ cá cơm than khi tiếp xúc với không khí.
+  3. So sánh với nước mắm công nghiệp (sử dụng chất chống oxy hóa sulfite và phẩm màu nên không đổi màu).
+  4. Hướng dẫn bảo quản đúng cách: Đậy kín nắp sau khi dùng, bảo quản nơi khô ráo, tuyệt đối không cho vào tủ lạnh (tránh kết tinh muối tự nhiên).
+* **Trạng thái:** `VERIFIED_EXTERNAL` (Sẵn sàng xuất bản).
+
+---
+
+### Bài viết 8: Nước mắm Nam Ô trong mâm cơm xứ Quảng: Linh hồn của món gỏi cá Nam Ô và bánh tráng cuốn thịt heo
+* **Slug URL:** `nuoc-mam-nam-o-trong-mam-com-xu-quang-linh-hon-am-thuc`
+* **Danh mục:** Văn hóa ẩm thực & Bí quyết (`van-hoa-am-thuc`)
+* **Tóm tắt (Excerpt):** Nước mắm Nam Ô không đơn thuần là gia vị, mà là linh hồn kết nối hương vị các món đặc sản trứ danh Đà Nẵng — Quảng Nam như gỏi cá Nam Ô và bánh tráng cuốn thịt heo hai đầu da.
+* **Nguồn tư liệu xác thực:**
+  - Tinh hoa văn hóa ẩm thực miền Trung (Cục Du lịch Quốc gia Việt Nam, Tạp chí Du lịch).
+* **Nội dung cốt lõi:**
+  1. Bát nước mắm dầm ớt xiêm xanh — biểu tượng mộc mạc và gắn kết tình thân trong mâm cơm gia đình người miền Trung.
+  2. Món Gỏi cá Nam Ô: Cá trích tươi rói kết hợp chén nước chấm đun sôi từ mắm nhĩ Nam Ô, gừng tỏi ớt cay nồng và đậu phộng bùi béo.
+  3. Bánh tráng cuốn thịt heo hai đầu da chấm bát mắm nhĩ sóng sánh thơm lừng.
+* **Trạng thái:** `VERIFIED_EXTERNAL` (Sẵn sàng xuất bản).
+
+---
+
 <a name="phan-7-bao-cao-xung-dot-du-lieu"></a>
 ## PHẦN 7: BÁO CÁO XUNG ĐỘT DỮ LIỆU (CONFLICT REPORT)
 
