@@ -1,0 +1,8 @@
+node_modules/
+.next/
+.tsupgrader/
+out/
+.env
+.env.local
+coverage/
+*.tsbuildinfo
