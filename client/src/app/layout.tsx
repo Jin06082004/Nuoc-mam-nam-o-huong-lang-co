@@ -30,8 +30,8 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="vi">
-      <body>
+    <html lang="vi" suppressHydrationWarning>
+      <body suppressHydrationWarning>
         <StoreProvider>
           <SiteChrome>{children}</SiteChrome>
         </StoreProvider>
