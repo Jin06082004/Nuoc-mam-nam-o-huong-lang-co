@@ -4,6 +4,7 @@ import { pool, rows, type SqlValue } from "../config/database";
 import { AppError } from "../utils/errors";
 import { calculateDiscount, calculateOrderTotals } from "./money";
 import { readStoreSettings } from "./settings";
+import { sendOrderConfirmationEmail } from "./mail";
 
 async function connectionRows<T extends RowDataPacket>(
   connection: PoolConnection,
@@ -293,6 +294,47 @@ export async function createOrder(userId: string, input: CheckoutInput): Promise
     await connection.execute("DELETE FROM cart_items WHERE cart_id=?", [cart.id]);
     await connection.execute("UPDATE carts SET status='CONVERTED', updated_at=CURRENT_TIMESTAMP WHERE id=?", [cart.id]);
     await connection.commit();
+
+    void (async () => {
+      try {
+        const userRows = await rows<RowDataPacket>("SELECT email FROM users WHERE id=?", [userId]);
+        const customerEmail = (userRows[0] as { email?: string } | undefined)?.email;
+        if (customerEmail) {
+          const shippingAddress = [
+            input.shipping_address_line,
+            input.shipping_ward,
+            input.shipping_district,
+            input.shipping_province,
+          ].filter(Boolean).join(", ");
+
+          await sendOrderConfirmationEmail({
+            orderCode,
+            orderId,
+            customerName: input.customer_name,
+            customerEmail,
+            customerPhone: input.customer_phone,
+            shippingAddress,
+            paymentMethod: input.payment_method,
+            items: items.map((i) => ({
+              productName: i.product_name,
+              variantName: i.variant_name,
+              quantity: i.quantity,
+              price: i.price,
+              lineTotal: Math.round(Number(i.price) * i.quantity * 100) / 100,
+            })),
+            subtotal: totals.subtotal,
+            shippingFee: totals.shippingFee,
+            discountAmount: totals.discount,
+            totalAmount: totals.total,
+            note: input.note,
+            createdAt: new Date().toLocaleString("vi-VN"),
+          });
+        }
+      } catch (err) {
+        console.error("Failed to trigger order confirmation email:", err);
+      }
+    })();
+
     return { id: orderId, order_code: orderCode, status: "PENDING", ...totals };
   } catch (error) {
     await connection.rollback();

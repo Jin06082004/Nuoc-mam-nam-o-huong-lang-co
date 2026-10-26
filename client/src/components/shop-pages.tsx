@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { api, ApiError } from "@/lib/api";
 import { formatDate, orderStatus } from "@/lib/format";
+import { removeGuestCartItem, updateGuestCartItem } from "@/lib/guest-cart";
 import type { BlogPost, Order } from "@/lib/types";
 import { useStore } from "./providers";
 import { Breadcrumb, Button, EmptyState, ErrorState, Loading, Price, ProductImage } from "./ui";
@@ -16,9 +17,8 @@ export function CartPage() {
   const [busyItem, setBusyItem] = useState<number | null>(null);
   const [retryKey, setRetryKey] = useState(0);
   useEffect(() => {
-    if (!user) return;
     void refreshCart().catch(() => setError("Không thể tải giỏ hàng."));
-  }, [user, refreshCart, retryKey]);
+  }, [refreshCart, retryKey]);
 
   const items = cart?.items ?? [];
   const total = items.reduce((sum, item) => sum + Number(item.line_total), 0);
@@ -27,8 +27,13 @@ export function CartPage() {
     setBusyItem(id);
     setError("");
     try {
-      await api.updateCartItem(id, quantity);
-      await refreshCart();
+      if (!user) {
+        updateGuestCartItem(id, quantity);
+        await refreshCart();
+      } else {
+        await api.updateCartItem(id, quantity);
+        await refreshCart();
+      }
     } catch (cause) {
       const message = cause instanceof ApiError ? cause.message : "Không thể cập nhật giỏ hàng.";
       setError(message);
@@ -41,9 +46,15 @@ export function CartPage() {
   async function removeItem(id: number) {
     setBusyItem(id);
     try {
-      await api.removeCartItem(id);
-      await refreshCart();
-      notify("Đã xóa sản phẩm khỏi giỏ.");
+      if (!user) {
+        removeGuestCartItem(id);
+        await refreshCart();
+        notify("Đã xóa sản phẩm khỏi giỏ.");
+      } else {
+        await api.removeCartItem(id);
+        await refreshCart();
+        notify("Đã xóa sản phẩm khỏi giỏ.");
+      }
     } catch (cause) {
       notify(cause instanceof ApiError ? cause.message : "Không thể xóa sản phẩm.", "error");
     } finally {
@@ -55,49 +66,57 @@ export function CartPage() {
     <main className="page-shell container">
       <Breadcrumb items={[{ label: "Trang chủ", href: "/" }, { label: "Giỏ hàng" }]} />
       <section className="page-heading"><p className="eyebrow">Mua sắm</p><h1>Giỏ hàng</h1></section>
-      {!user ? <EmptyState title="Đăng nhập để xem giỏ hàng" description="Giỏ hàng được lưu trên tài khoản của bạn." action={<Button href="/dang-nhap?next=%2Fgio-hang">Đăng nhập</Button>} />
-        : cartLoading && !cart ? <Loading label="Đang tải giỏ hàng…" />
-          : error && !cart ? <ErrorState message={error} onRetry={() => setRetryKey((value) => value + 1)} />
-            : items.length === 0 ? <EmptyState title="Giỏ hàng đang trống" description="Hãy khám phá danh mục để tìm sản phẩm phù hợp." action={<Button href="/san-pham">Khám phá sản phẩm</Button>} />
-              : (
-                <>
-                  {error && <div className="inline-error" role="alert">{error}</div>}
-                  <div className="cart-layout">
-                    <div className="cart-list">
-                      {items.map((item) => (
-                        <article className="cart-item" key={item.id}>
-                          <Link href={`/san-pham/${encodeURIComponent(item.slug)}`} aria-label={`Xem ${item.product_name}`}>
-                            <ProductImage alt={item.product_name} className="cart-item__image" />
-                          </Link>
-                          <div className="cart-item__details">
-                            <h2><Link href={`/san-pham/${encodeURIComponent(item.slug)}`}>{item.product_name}</Link></h2>
-                            <p>{item.variant_name}</p>
-                            <Price value={item.price} />
-                            <div className="cart-item__controls">
-                              <div className="quantity-control" aria-label={`Số lượng ${item.product_name}`}>
-                                <button type="button" aria-label="Giảm số lượng" disabled={busyItem === item.id || item.quantity <= 1} onClick={() => void updateItem(item.id, item.quantity - 1)}>−</button>
-                                <span aria-live="polite">{busyItem === item.id ? "…" : item.quantity}</span>
-                                <button type="button" aria-label="Tăng số lượng" disabled={busyItem === item.id || item.quantity >= item.available_quantity} onClick={() => void updateItem(item.id, item.quantity + 1)}>＋</button>
-                              </div>
-                              <button className="text-button text-button--danger" type="button" disabled={busyItem === item.id} onClick={() => void removeItem(item.id)}>Xóa</button>
+      {cartLoading && !cart ? <Loading label="Đang tải giỏ hàng…" />
+        : error && !cart ? <ErrorState message={error} onRetry={() => setRetryKey((value) => value + 1)} />
+          : items.length === 0 ? <EmptyState title="Giỏ hàng đang trống" description="Hãy khám phá danh mục để tìm sản phẩm phù hợp." action={<Button href="/san-pham">Khám phá sản phẩm</Button>} />
+            : (
+              <>
+                {error && <div className="inline-error" role="alert">{error}</div>}
+                <div className="cart-layout">
+                  <div className="cart-list">
+                    {items.map((item) => (
+                      <article className="cart-item" key={item.id}>
+                        <Link href={`/san-pham/${encodeURIComponent(item.slug)}`} aria-label={`Xem ${item.product_name}`}>
+                          <ProductImage alt={item.product_name} className="cart-item__image" />
+                        </Link>
+                        <div className="cart-item__details">
+                          <h2><Link href={`/san-pham/${encodeURIComponent(item.slug)}`}>{item.product_name}</Link></h2>
+                          <p>{item.variant_name}</p>
+                          <Price value={item.price} />
+                          <div className="cart-item__controls">
+                            <div className="quantity-control" aria-label={`Số lượng ${item.product_name}`}>
+                              <button type="button" aria-label="Giảm số lượng" disabled={busyItem === item.id || item.quantity <= 1} onClick={() => void updateItem(item.id, item.quantity - 1)}>−</button>
+                              <span aria-live="polite">{busyItem === item.id ? "…" : item.quantity}</span>
+                              <button type="button" aria-label="Tăng số lượng" disabled={busyItem === item.id || item.quantity >= item.available_quantity} onClick={() => void updateItem(item.id, item.quantity + 1)}>＋</button>
                             </div>
+                            <button className="text-button text-button--danger" type="button" disabled={busyItem === item.id} onClick={() => void removeItem(item.id)}>Xóa</button>
                           </div>
-                          <div className="cart-item__subtotal"><span>Tạm tính</span><Price value={item.line_total} /></div>
-                        </article>
-                      ))}
-                    </div>
-                    <aside className="summary-card">
-                      <h2>Tóm tắt đơn hàng</h2>
-                      <div className="summary-row"><span>Tạm tính</span><Price value={total} /></div>
-                      <div className="summary-row"><span>Phí giao hàng</span><span>Tính khi đặt hàng</span></div>
-                      <div className="summary-row summary-row--total"><strong>Tổng tạm tính</strong><Price value={total} /></div>
-                      <p>Giá và tồn kho sẽ được máy chủ kiểm tra lại khi bạn đặt hàng.</p>
-                      <Button href="/thanh-toan" className="button--full">Tiến hành thanh toán</Button>
-                      <Button href="/san-pham" variant="quiet" className="button--full">Tiếp tục mua hàng</Button>
-                    </aside>
+                        </div>
+                        <div className="cart-item__subtotal"><span>Tạm tính</span><Price value={item.line_total} /></div>
+                      </article>
+                    ))}
                   </div>
-                </>
-              )}
+                  <aside className="summary-card">
+                    <h2>Tóm tắt đơn hàng</h2>
+                    <div className="summary-row"><span>Tạm tính</span><Price value={total} /></div>
+                    <div className="summary-row"><span>Phí giao hàng</span><span>Tính khi đặt hàng</span></div>
+                    <div className="summary-row summary-row--total"><strong>Tổng tạm tính</strong><Price value={total} /></div>
+                    <p>Giá và tồn kho sẽ được máy chủ kiểm tra lại khi bạn đặt hàng.</p>
+                    {user ? (
+                      <Button href="/thanh-toan" className="button--full">Tiến hành thanh toán</Button>
+                    ) : (
+                      <div style={{ display: "grid", gap: "8px" }}>
+                        <Button href="/dang-nhap?next=%2Fthanh-toan" className="button--full">Đăng nhập để thanh toán</Button>
+                        <span style={{ fontSize: "0.82rem", color: "var(--color-muted)", textAlign: "center" }}>
+                          Sản phẩm trong giỏ sẽ được tự động lưu vào tài khoản khi bạn đăng nhập.
+                        </span>
+                      </div>
+                    )}
+                    <Button href="/san-pham" variant="quiet" className="button--full">Tiếp tục mua hàng</Button>
+                  </aside>
+                </div>
+              </>
+            )}
     </main>
   );
 }
@@ -114,6 +133,34 @@ const checkoutSchema = z.object({
 });
 
 type CheckoutValues = z.infer<typeof checkoutSchema>;
+
+function CopyTextButton({ text, label = "Sao chép" }: { text: string; label?: string }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (navigator?.clipboard?.writeText) {
+      void navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+  return (
+    <button type="button" onClick={handleCopy} className="copy-pill-button" title={`Sao chép ${text}`}>
+      {copied ? "✓ Đã chép" : label}
+    </button>
+  );
+}
+
+function getVietQrUrl(accountNumber?: string | null, bankName?: string | null, amount?: number | string, orderCode?: string) {
+  const acc = encodeURIComponent(accountNumber || "3897126450");
+  // ACMEBank is a mock bank in SePay sandbox without a Napas BIN code.
+  // We map it to MBBank for the VietQR visual generator so it renders a valid QR image.
+  const bank = (!bankName || bankName.toUpperCase().includes("ACME")) ? "MBBank" : encodeURIComponent(bankName);
+  const des = encodeURIComponent(orderCode || "HuongLangCo");
+  const amt = amount ? encodeURIComponent(String(amount)) : "0";
+  return `https://qr.sepay.vn/img?acc=${acc}&bank=${bank}&amount=${amt}&des=${des}`;
+}
 
 export function CheckoutPage() {
   const router = useRouter();
@@ -240,20 +287,106 @@ export function CheckoutPage() {
                   </div>
                   <fieldset className="payment-options">
                     <legend>Phương thức thanh toán</legend>
-                    {storeSettingsLoading ? <p>Đang tải phương thức thanh toán…</p> : paymentMethods.length === 0
-                      ? <p>Chưa có phương thức thanh toán khả dụng. Vui lòng liên hệ cửa hàng sau khi thông tin được cấu hình.</p>
-                      : <>
-                        {storeSettings?.cod_enabled && <label><input type="radio" name="payment_method" value="COD" checked={values.payment_method === "COD"} onChange={() => field("payment_method", "COD")} /> Thanh toán khi nhận hàng (COD)</label>}
-                        {storeSettings?.bank_transfer_enabled && <label><input type="radio" name="payment_method" value="BANK_TRANSFER" checked={values.payment_method === "BANK_TRANSFER"} onChange={() => field("payment_method", "BANK_TRANSFER")} /> Chuyển khoản ngân hàng</label>}
-                        <p>Thanh toán sẽ ở trạng thái chờ xác nhận; website chưa tích hợp cổng thanh toán.</p>
-                      </>}
-                    {values.payment_method === "BANK_TRANSFER" && storeSettings?.bank_transfer_enabled && <div className="bank-transfer-details">
-                      <strong>Thông tin nhận chuyển khoản</strong>
-                      <span>{storeSettings.bank_name}</span>
-                      <span>{storeSettings.bank_account_number}</span>
-                      <span>{storeSettings.bank_account_holder}</span>
-                      {storeSettings.bank_branch && <span>{storeSettings.bank_branch}</span>}
-                    </div>}
+                    {storeSettingsLoading ? (
+                      <p>Đang tải phương thức thanh toán…</p>
+                    ) : paymentMethods.length === 0 ? (
+                      <p>Chưa có phương thức thanh toán khả dụng. Vui lòng liên hệ cửa hàng sau khi thông tin được cấu hình.</p>
+                    ) : (
+                      <div className="payment-methods-grid">
+                        {storeSettings?.cod_enabled && (
+                          <div
+                            className={`payment-method-card ${values.payment_method === "COD" ? "is-selected" : ""}`}
+                            onClick={() => field("payment_method", "COD")}
+                          >
+                            <div className="payment-method-header">
+                              <input
+                                id="payment_cod"
+                                type="radio"
+                                name="payment_method"
+                                value="COD"
+                                checked={values.payment_method === "COD"}
+                                onChange={() => field("payment_method", "COD")}
+                                className="payment-method-radio"
+                              />
+                              <label htmlFor="payment_cod" className="payment-method-title">
+                                Thanh toán khi nhận hàng (COD)
+                              </label>
+                            </div>
+                            <p className="payment-method-desc">
+                              Thanh toán tiền mặt cho nhân viên giao hàng sau khi nhận và kiểm tra kiện hàng nước mắm.
+                            </p>
+                          </div>
+                        )}
+
+                        {storeSettings?.bank_transfer_enabled && (
+                          <div
+                            className={`payment-method-card ${values.payment_method === "BANK_TRANSFER" ? "is-selected" : ""}`}
+                            onClick={() => field("payment_method", "BANK_TRANSFER")}
+                          >
+                            <div className="payment-method-header">
+                              <input
+                                id="payment_bank"
+                                type="radio"
+                                name="payment_method"
+                                value="BANK_TRANSFER"
+                                checked={values.payment_method === "BANK_TRANSFER"}
+                                onChange={() => field("payment_method", "BANK_TRANSFER")}
+                                className="payment-method-radio"
+                              />
+                              <label htmlFor="payment_bank" className="payment-method-title">
+                                <span>Chuyển khoản quét mã VietQR</span>
+                                <span className="payment-badge payment-badge--instant">⚡ Tự động xác nhận 24/7</span>
+                              </label>
+                            </div>
+                            <p className="payment-method-desc">
+                              Quét mã VietQR bằng bất kỳ App Ngân hàng (MBBank, Vietcombank, Techcombank, BIDV, VPBank,...) hoặc Ví điện tử (MoMo, ZaloPay).
+                            </p>
+
+                            {values.payment_method === "BANK_TRANSFER" && (
+                              <div className="qr-checkout-preview" onClick={(e) => e.stopPropagation()}>
+                                <div className="qr-image-wrapper">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={getVietQrUrl(storeSettings.bank_account_number, storeSettings.bank_name, total + (estimatedShipping ?? 0))}
+                                    alt="Mã VietQR mẫu thanh toán"
+                                    width={140}
+                                    height={140}
+                                    style={{ display: "block", margin: "0 auto" }}
+                                  />
+                                  <span style={{ fontSize: "0.72rem", color: "var(--color-muted)", display: "block", marginTop: "4px" }}>
+                                    Quét bằng App Ngân hàng
+                                  </span>
+                                </div>
+                                <div className="qr-info-list">
+                                  <div>
+                                    Ngân hàng: <strong>{storeSettings.bank_name || "ACMEBank"}</strong>
+                                  </div>
+                                  <div>
+                                    Số tài khoản: <strong>{storeSettings.bank_account_number || "3897126450"}</strong>
+                                    <CopyTextButton text={storeSettings.bank_account_number || "3897126450"} />
+                                  </div>
+                                  {storeSettings.bank_branch && (
+                                    <div style={{ fontSize: "0.8rem", color: "var(--color-wood)" }}>
+                                      {storeSettings.bank_branch}
+                                      <CopyTextButton text="SBPAY9735061428" label="Chép TK ảo" />
+                                    </div>
+                                  )}
+                                  <div>
+                                    Chủ tài khoản: <strong>{storeSettings.bank_account_holder || "NGUYEN NGUYEN PHUC"}</strong>
+                                  </div>
+                                  <div>
+                                    Số tiền: <strong><Price value={total + (estimatedShipping ?? 0)} /></strong>
+                                  </div>
+                                  <p style={{ margin: "4px 0 0", fontSize: "0.78rem", color: "var(--color-muted)" }}>
+                                    💡 <em>Sau khi bấm <strong>Đặt hàng</strong>, mã QR gắn mã đơn của bạn sẽ hiển thị để hệ thống SePay tự động đối soát và kích hoạt đơn hàng trong 1-3 phút.</em>
+                                  </p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </fieldset>
                   {storeSettingsError && <div className="inline-error" role="alert">Không thể tải cài đặt giao hàng và thanh toán. Vui lòng tải lại trang trước khi đặt hàng.</div>}
                   {submitError && <div className="inline-error" role="alert">{submitError}</div>}
@@ -276,7 +409,7 @@ export function CheckoutPage() {
 
 export function OrderSuccessPage() {
   const searchParams = useSearchParams();
-  const { storeSettings } = useStore();
+  const { storeSettings, notify } = useStore();
   const id = Number(searchParams.get("id"));
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
@@ -311,16 +444,82 @@ export function OrderSuccessPage() {
                 <p>Mã đơn hàng <strong>{order.order_code}</strong></p>
                 <p>Trạng thái <strong>{orderStatus(order.status)}</strong></p>
                 <p>Tổng tiền <strong><Price value={order.total_amount} /></strong></p>
-                <p>Thanh toán <strong>{order.payments?.[0]?.payment_method === "COD" ? "Thanh toán khi nhận hàng" : "Chuyển khoản ngân hàng"} · Chờ xác nhận</strong></p>
-                {order.payments?.[0]?.payment_method === "BANK_TRANSFER" && storeSettings?.bank_transfer_enabled && <div className="bank-transfer-details">
-                  <strong>Thông tin nhận chuyển khoản</strong>
-                  <span>{storeSettings.bank_name}</span><span>{storeSettings.bank_account_number}</span><span>{storeSettings.bank_account_holder}</span>
-                  {storeSettings.bank_branch && <span>{storeSettings.bank_branch}</span>}
-                </div>}
+                <p>Thanh toán <strong>{order.payments?.[0]?.payment_method === "COD" ? "Thanh toán khi nhận hàng (COD)" : "Chuyển khoản VietQR (Napas 247)"} · {order.status === "CONFIRMED" ? "Đã thanh toán" : "Chờ xác nhận"}</strong></p>
+                {order.payments?.[0]?.payment_method === "BANK_TRANSFER" && (
+                  <div className="bank-transfer-details" style={{ marginTop: "1.5rem", padding: "1.25rem", background: "var(--color-card)", borderRadius: "8px", border: "1px solid var(--color-line)", textAlign: "left" }}>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "1.5rem", alignItems: "center" }}>
+                      <div style={{ textAlign: "center", background: "#fff", padding: "12px", borderRadius: "8px", border: "1px solid #ddd", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={getVietQrUrl(storeSettings?.bank_account_number, storeSettings?.bank_name, order.total_amount, order.order_code)}
+                          alt={`Mã VietQR thanh toán đơn hàng ${order.order_code}`}
+                          width={180}
+                          height={180}
+                          style={{ display: "block", margin: "0 auto" }}
+                        />
+                        <span style={{ fontSize: "0.75rem", color: "#666", display: "block", marginTop: "6px", fontWeight: 600 }}>Quét mã VietQR qua App Ngân hàng</span>
+                      </div>
+                      <div style={{ flex: "1 1 280px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px", flexWrap: "wrap" }}>
+                          <strong style={{ fontSize: "1.05rem", color: "var(--color-wood)" }}>
+                            Thông tin chuyển khoản (SePay Sandbox)
+                          </strong>
+                          <span className="payment-badge payment-badge--instant">⚡ Tự động xác nhận</span>
+                        </div>
+                        <p style={{ margin: "4px 0", fontSize: "0.9rem" }}>Ngân hàng: <strong>{storeSettings?.bank_name || "ACMEBank"}</strong></p>
+                        <p style={{ margin: "4px 0", fontSize: "0.9rem" }}>
+                          Số tài khoản: <strong>{storeSettings?.bank_account_number || "3897126450"}</strong>
+                          <CopyTextButton text={storeSettings?.bank_account_number || "3897126450"} />
+                        </p>
+                        {storeSettings?.bank_branch && (
+                          <p style={{ margin: "4px 0", fontSize: "0.85rem", color: "var(--color-wood)" }}>
+                            {storeSettings.bank_branch}
+                            <CopyTextButton text="SBPAY9735061428" label="Chép TK ảo" />
+                          </p>
+                        )}
+                        <p style={{ margin: "4px 0", fontSize: "0.9rem" }}>Chủ tài khoản: <strong>{storeSettings?.bank_account_holder || "NGUYEN NGUYEN PHUC"}</strong></p>
+                        <p style={{ margin: "4px 0", fontSize: "0.9rem" }}>
+                          Số tiền: <strong>{new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(Number(order.total_amount))}</strong>
+                          <CopyTextButton text={String(order.total_amount)} label="Sao chép tiền" />
+                        </p>
+                        <div style={{ margin: "8px 0", fontSize: "0.9rem", background: "#FAF8F4", padding: "8px 12px", borderRadius: "6px", border: "1px dashed var(--color-gold)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "6px" }}>
+                          <div>
+                            Nội dung CK: <strong style={{ color: "var(--color-wood)", fontSize: "1.05rem" }}>{order.order_code}</strong>
+                          </div>
+                          <CopyTextButton text={order.order_code} label="Sao chép nội dung" />
+                        </div>
+                        {order.status !== "CONFIRMED" && (
+                          <div style={{ marginTop: "12px", paddingTop: "10px", borderTop: "1px dashed #ddd" }}>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  await api.simulateSepayPayment(order.id);
+                                  const refreshed = await api.order(order.id);
+                                  setOrder(refreshed);
+                                  notify("Đã giả lập webhook SePay thành công! Đơn hàng đã chuyển sang trạng thái ĐÃ XÁC NHẬN.", "success");
+                                } catch {
+                                  notify("Không thể kích hoạt giả lập thanh toán.", "error");
+                                }
+                              }}
+                              className="copy-pill-button"
+                              style={{ padding: "6px 14px", fontSize: "0.82rem", background: "#E8F5E9", color: "#1B5E20", borderColor: "#A5D6A7" }}
+                            >
+                              🧪 Giả lập thanh toán thành công (SePay Webhook)
+                            </button>
+                          </div>
+                        )}
+                        <p style={{ fontSize: "0.8rem", color: "var(--color-muted)", margin: "6px 0 0" }}>
+                          * Hệ thống sẽ tự động xác nhận và chuyển đơn hàng sang trạng thái ĐÃ XÁC NHẬN trong vòng 1–3 phút sau khi chuyển khoản thành công.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
         <div className="success-card__actions">
-          {order && <Button href={`/tai-khoan/don-hang/${order.id}`}>Xem đơn hàng</Button>}
+          {order && <Button href={`/tai-khoan/don-hang/${order.id}`}>Xem chi tiết đơn hàng</Button>}
           <Button href="/san-pham" variant="secondary">Tiếp tục mua sắm</Button>
         </div>
       </section>
@@ -526,7 +725,7 @@ export function OrderHistoryPage() {
 }
 
 export function OrderDetailPage({ orderId }: { orderId: number }) {
-  const { user, authLoading, storeSettings } = useStore();
+  const { user, authLoading, storeSettings, notify } = useStore();
   const router = useRouter();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
@@ -599,12 +798,59 @@ export function OrderDetailPage({ orderId }: { orderId: number }) {
                   <p>{order.shipping_address_line}<br />{[order.shipping_ward, order.shipping_district, order.shipping_province].filter(Boolean).join(", ")}</p>
                   {order.note && <p>Ghi chú: {order.note}</p>}
                   <h3>Thanh toán</h3>
-                  {order.payments?.map((payment, index) => <p key={`${payment.payment_method}-${index}`}>{payment.payment_method === "COD" ? "Thanh toán khi nhận hàng" : "Chuyển khoản ngân hàng"} · {payment.payment_status === "PENDING" ? "Chờ xác nhận" : payment.payment_status}</p>)}
-                  {order.payments?.some((payment) => payment.payment_method === "BANK_TRANSFER") && storeSettings?.bank_transfer_enabled && <div className="bank-transfer-details">
-                    <strong>Thông tin nhận chuyển khoản</strong>
-                    <span>{storeSettings.bank_name}</span><span>{storeSettings.bank_account_number}</span><span>{storeSettings.bank_account_holder}</span>
-                    {storeSettings.bank_branch && <span>{storeSettings.bank_branch}</span>}
-                  </div>}
+                  {order.payments?.map((payment, index) => <p key={`${payment.payment_method}-${index}`}>{payment.payment_method === "COD" ? "Thanh toán khi nhận hàng" : "Chuyển khoản VietQR"} · {payment.payment_status === "PENDING" ? "Chờ xác nhận" : payment.payment_status}</p>)}
+                  {order.payments?.some((payment) => payment.payment_method === "BANK_TRANSFER") && storeSettings?.bank_transfer_enabled && (
+                    <div className="bank-transfer-details" style={{ marginTop: "1rem", padding: "1rem", background: "var(--color-card)", borderRadius: "8px", border: "1px solid var(--color-line)" }}>
+                      <div style={{ display: "flex", gap: "1rem", alignItems: "center", flexWrap: "wrap" }}>
+                        {order.status !== "CONFIRMED" && order.status !== "DELIVERED" && (
+                          <div style={{ textAlign: "center", background: "#fff", padding: "8px", borderRadius: "6px", border: "1px solid #ddd" }}>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={getVietQrUrl(storeSettings.bank_account_number, storeSettings.bank_name, order.total_amount, order.order_code)}
+                              alt={`Mã VietQR ${order.order_code}`}
+                              width={120}
+                              height={120}
+                              style={{ display: "block" }}
+                            />
+                            <span style={{ fontSize: "0.7rem", color: "#666", display: "block", marginTop: "2px" }}>Quét mã QR</span>
+                          </div>
+                        )}
+                        <div style={{ flex: "1 1 200px" }}>
+                          <strong style={{ display: "block", marginBottom: "4px" }}>Thông tin nhận chuyển khoản (SePay Sandbox)</strong>
+                          <p style={{ margin: "2px 0", fontSize: "0.85rem" }}>{storeSettings.bank_name} · <strong>{storeSettings.bank_account_number}</strong> <CopyTextButton text={storeSettings.bank_account_number || "3897126450"} /></p>
+                          {storeSettings.bank_branch && (
+                            <p style={{ margin: "2px 0", fontSize: "0.8rem", color: "var(--color-wood)" }}>
+                              {storeSettings.bank_branch}
+                              <CopyTextButton text="SBPAY9735061428" label="Chép TK ảo" />
+                            </p>
+                          )}
+                          <p style={{ margin: "2px 0", fontSize: "0.85rem" }}>{storeSettings.bank_account_holder}</p>
+                          <p style={{ margin: "4px 0 0", fontSize: "0.85rem", background: "#FAF8F4", padding: "4px 8px", borderRadius: "4px", border: "1px dashed var(--color-gold)", display: "inline-block" }}>
+                            Nội dung: <strong>{order.order_code}</strong> <CopyTextButton text={order.order_code} label="Sao chép" />
+                          </p>
+                          {order.status !== "CONFIRMED" && (
+                            <div style={{ marginTop: "8px" }}>
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  try {
+                                    await api.simulateSepayPayment(order.id);
+                                    window.location.reload();
+                                  } catch {
+                                    notify("Không thể kích hoạt giả lập thanh toán.", "error");
+                                  }
+                                }}
+                                className="copy-pill-button"
+                                style={{ padding: "4px 10px", fontSize: "0.78rem", background: "#E8F5E9", color: "#1B5E20", borderColor: "#A5D6A7" }}
+                              >
+                                🧪 Giả lập thanh toán SePay thành công
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <p className="order-card__label">Đặt ngày {formatDate(order.created_at)}</p>
                   {notice && <p className="form-note" role="status">{notice}</p>}
                   {order.can_cancel && <Button type="button" variant="quiet" disabled={canceling} onClick={() => void cancelOrder()}>{canceling ? "Đang hủy…" : "Hủy đơn hàng"}</Button>}
@@ -618,19 +864,43 @@ export function OrderDetailPage({ orderId }: { orderId: number }) {
 
 export function AboutPage() {
   const { storeSettings } = useStore();
-  const storeName = storeSettings?.store_name.trim();
+  const storeName = storeSettings?.store_name.trim() || "Nước mắm Nam Ô Hương Làng Cổ";
   return (
     <main className="page-shell container">
       <Breadcrumb items={[{ label: "Trang chủ", href: "/" }, { label: "Về thương hiệu" }]} />
       <section className="editorial-hero">
-        {storeName && <p className="eyebrow">{storeName}</p>}
-        <h1>Câu chuyện thương hiệu</h1>
-        <p>Nội dung chính thức đang chờ chủ thương hiệu cung cấp.</p>
+        <p className="eyebrow">{storeName}</p>
+        <h1>Giữ hồn giọt ngọc Nam Ô — Hành trình gìn giữ di sản 400 năm</h1>
+        <p>Thương hiệu Nước mắm Nam Ô — Hương Làng Cổ thuộc Công ty TNHH Mắm Hồng Hương, được dẫn dắt bởi nghệ nhân Bùi Thanh Phú cùng tâm huyết khôi phục và tôn vinh Di sản văn hóa phi vật thể Quốc gia.</p>
       </section>
+
       <section className="editorial-content">
-        <h2>Chia sẻ từ chủ thương hiệu</h2>
-        <p>Chúng tôi sẽ cập nhật câu chuyện, hình ảnh và thông tin về thương hiệu tại đây khi được cung cấp. Hiện tại, website không tự đưa ra tuyên bố về lịch sử, nguồn nguyên liệu hay quy trình sản xuất.</p>
-        <Button href="/san-pham">Xem danh mục sản phẩm</Button>
+        <h2>1. Làng chài cổ Nam Ô và lịch sử hơn 4 thế kỷ</h2>
+        <p>Nằm nép mình dưới chân đèo Hải Vân hùng vĩ, bên bờ vịnh Đà Nẵng, làng chài Nam Ô đã có hơn 400 năm lịch sử hình thành và phát triển. Nơi đây từng là vùng đất nổi danh khắp xứ Đàng Trong với nghề làm nước mắm nhĩ tiến vua, mang phong vị mặn mòi, nồng đậm đặc trưng của vùng duyên hải miền Trung.</p>
+
+        <h2>2. Nghệ nhân Bùi Thanh Phú và khát vọng chấn hưng làng nghề</h2>
+        <p>Sinh ra và lớn lên trong gia đình 4 đời gắn bó với nghề làm mắm, anh Bùi Thanh Phú (người sáng lập thương hiệu Hương Làng Cổ, Giám đốc Công ty TNHH Mắm Hồng Hương) từng tốt nghiệp Thạc sĩ Công nghệ Thông tin và là giảng viên. Đứng trước nguy cơ mai một của làng nghề truyền thống trước làn sóng nước mắm công nghiệp, anh đã quyết định rẽ hướng, trở về quê hương tiếp nối cơ nghiệp của cha ông.</p>
+        <p>Bằng sự nhạy bén, tư duy chuẩn hóa và tình yêu tha thiết với di sản quê hương, anh Bùi Thanh Phú đã được vinh danh là một trong những <strong>Nông dân Việt Nam xuất sắc</strong>, đưa giọt mắm Nam Ô vươn xa khắp mọi miền đất nước.</p>
+
+        <h2>3. Tinh hoa nguyên liệu và bí quyết ủ lu sành</h2>
+        <p>Nước mắm Nam Ô Hương Làng Cổ tuân thủ nghiêm ngặt phương pháp chượp mắm cổ truyền của các bậc tiền nhân:</p>
+        <ul>
+          <li><strong>Cá cơm than tươi ngon:</strong> Chỉ sử dụng cá cơm than được đánh bắt đúng vụ cá béo nhất (tháng Ba âm lịch) tại vùng biển Nam Ô — Hải Vân, mình dày, lấp lánh vảy bạc.</li>
+          <li><strong>Muối Sa Huỳnh trữ kho:</strong> Muối biển tinh khiết từ vựa muối Sa Huỳnh (Quảng Ngãi), được lưu trữ trong kho từ 1 đến 2 năm để loại bỏ triệt để vị đắng, chát của muối non, chỉ giữ lại vị mặn thanh khiết.</li>
+          <li><strong>Tỷ lệ vàng 3 cá : 1 muối:</strong> Hỗn hợp cá và muối được đảo đều rồi ủ chượp tự nhiên trong các chum, vại, lu sành đất nung dày dặn dưới nắng gió suốt 12 đến 18 tháng ròng.</li>
+          <li><strong>Chắt lọc thủ công:</strong> Từng giọt mắm nhĩ màu hổ phách cánh gián được lọc từ từ qua phễu tre đan thủ công lót vải mịn, cho ra dòng nước mắm nguyên chất thơm lừng, sóng sánh với hậu vị ngọt béo tự nhiên của đạm cá biển.</li>
+        </ul>
+
+        <h2>4. Chuẩn hóa OCOP 4 sao và chứng nhận quốc tế HACCP</h2>
+        <p>Không chỉ gìn giữ bí quyết gia truyền, cơ sở Hương Làng Cổ tiên phong áp dụng hệ thống quản lý an toàn thực phẩm theo tiêu chuẩn quốc tế <strong>HACCP</strong> và tự hào được UBND TP. Đà Nẵng công nhận đạt chuẩn <strong>OCOP 4 sao</strong>. Sản phẩm cam kết 100% nguyên chất, không chất bảo quản, không phẩm màu, không hương liệu nhân tạo.</p>
+
+        <h2>5. Điểm đến du lịch trải nghiệm di sản Nam Ô</h2>
+        <p>Tọa lạc tại Tổ 97 (Nam Ô 2), Kiệt 884/74/4 Nguyễn Lương Bằng, xưởng mắm Hương Làng Cổ luôn mở rộng cửa đón chào du khách, học sinh, sinh viên và các đoàn trải nghiệm văn hóa đến trực tiếp tham quan hàng trăm chiếc lu sành cổ kính, tự tay học cách trộn cá muối và thưởng thức giọt mắm nhĩ tinh túy ngay tại xưởng.</p>
+
+        <div style={{ marginTop: "2rem", display: "flex", gap: "1rem" }}>
+          <Button href="/san-pham">Khám phá sản phẩm OCOP</Button>
+          <Button href="/lien-he" variant="secondary">Liên hệ & Thăm xưởng</Button>
+        </div>
       </section>
     </main>
   );
@@ -706,6 +976,182 @@ export function NotFoundContent() {
   return (
     <main className="page-shell container">
       <EmptyState title="Không tìm thấy trang" description="Địa chỉ có thể đã thay đổi hoặc nội dung không còn được hiển thị." action={<Button href="/">Về trang chủ</Button>} />
+    </main>
+  );
+}
+
+export function ContactPage() {
+  const { storeSettings, notify } = useStore();
+  const [submitted, setSubmitted] = useState(false);
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
+  const storeName = storeSettings?.store_name || "Nước mắm Nam Ô Hương Làng Cổ";
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim() || !phone.trim() || !message.trim()) {
+      notify("Vui lòng nhập đầy đủ họ tên, số điện thoại và nội dung.", "error");
+      return;
+    }
+    setSubmitted(true);
+    notify("Cảm ơn bạn! Chúng tôi đã tiếp nhận thông tin và sẽ phản hồi sớm nhất.");
+  }
+
+  return (
+    <main className="page-shell container">
+      <Breadcrumb items={[{ label: "Trang chủ", href: "/" }, { label: "Liên hệ & Thăm xưởng" }]} />
+      <section className="editorial-hero">
+        <p className="eyebrow">Kết nối trực tiếp</p>
+        <h1>Liên hệ & Thăm xưởng sản xuất</h1>
+        <p>Cơ sở Nước mắm Nam Ô — Hương Làng Cổ luôn mở rộng cửa đón chào du khách, đối tác và khách hàng ghé thăm xưởng trải nghiệm di sản.</p>
+      </section>
+
+      <div className="cart-layout" style={{ marginTop: "2rem" }}>
+        <section className="editorial-content" style={{ flex: "1 1 55%" }}>
+          <h2>Thông tin cơ sở sản xuất</h2>
+          <p><strong>Đơn vị chủ quản:</strong> CÔNG TY TNHH MẮM HỒNG HƯƠNG</p>
+          <p><strong>Người đại diện:</strong> Bùi Thanh Phú (Giám đốc / Nghệ nhân làng nghề)</p>
+          <p><strong>Mã số thuế:</strong> 0401801078 (Chi cục Thuế Q. Liên Chiểu, TP. Đà Nẵng)</p>
+          <p><strong>Địa chỉ xưởng:</strong> {storeSettings?.store_address || "Tổ 97 (Nam Ô 2), Kiệt 884/74/4 Nguyễn Lương Bằng, Phường Hòa Hiệp Nam, Quận Liên Chiểu, TP. Đà Nẵng"}</p>
+          <p><strong>Hotline / Zalo đặt hàng:</strong> <a href={`tel:${storeSettings?.contact_phone || "0935998908"}`}><strong>{storeSettings?.contact_phone || "0935 998 908"}</strong></a></p>
+          <p><strong>Email:</strong> <a href={`mailto:${storeSettings?.contact_email || "huonglangco.namo@gmail.com"}`}>{storeSettings?.contact_email || "huonglangco.namo@gmail.com"}</a></p>
+          <p><strong>Fanpage Facebook:</strong> <a href="https://www.facebook.com/huonglangco.vn" target="_blank" rel="noopener noreferrer">facebook.com/huonglangco.vn ↗</a></p>
+          <p><strong>Giờ đón khách du lịch trải nghiệm:</strong> 07:30 – 17:30 (Tất cả các ngày trong tuần, kể cả Thứ 7 và Chủ Nhật).</p>
+
+          <h2 style={{ marginTop: "2rem" }}>Chỉ dẫn đường đi</h2>
+          <p>Từ trung tâm TP. Đà Nẵng, quý khách đi dọc đường Nguyễn Tất Thành hoặc Tôn Đức Thắng nối dài Nguyễn Lương Bằng hướng về phía chân đèo Hải Vân. Đến số 884 Nguyễn Lương Bằng (gần cầu Nam Ô), rẽ vào Kiệt 884 đi thẳng khoảng 200m là đến cổng xưởng mắm truyền thống Hương Làng Cổ.</p>
+        </section>
+
+        <aside className="summary-card" style={{ flex: "1 1 40%" }}>
+          <h2>Gửi tin nhắn hoặc đặt lịch tham quan</h2>
+          {submitted ? (
+            <div className="auth-card" style={{ padding: "1.5rem", background: "var(--color-card)" }}>
+              <p style={{ color: "var(--color-success)", fontWeight: 600 }}>✓ Gửi tin nhắn thành công!</p>
+              <p>Đội ngũ {storeName} đã nhận được lời nhắn của bạn và sẽ liên hệ lại qua số điện thoại <strong>{phone}</strong> trong thời gian sớm nhất.</p>
+              <Button onClick={() => setSubmitted(false)} variant="secondary">Gửi tin nhắn khác</Button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} style={{ display: "grid", gap: "1rem" }}>
+              <div>
+                <label htmlFor="contact-name" style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>Họ và tên *</label>
+                <input id="contact-name" className="header-search" style={{ width: "100%", padding: "10px" }} value={name} onChange={(e) => setName(e.target.value)} placeholder="Ví dụ: Nguyễn Văn A" required />
+              </div>
+              <div>
+                <label htmlFor="contact-phone" style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>Số điện thoại *</label>
+                <input id="contact-phone" type="tel" className="header-search" style={{ width: "100%", padding: "10px" }} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="09xx xxx xxx" required />
+              </div>
+              <div>
+                <label htmlFor="contact-email" style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>Email (nếu có)</label>
+                <input id="contact-email" type="email" className="header-search" style={{ width: "100%", padding: "10px" }} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@example.com" />
+              </div>
+              <div>
+                <label htmlFor="contact-msg" style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>Nội dung cần hỗ trợ / Lịch đoàn *</label>
+                <textarea id="contact-msg" rows={4} className="header-search" style={{ width: "100%", padding: "10px" }} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Cần tư vấn đặt sỉ, hộp quà biếu hoặc đặt lịch đoàn tham quan..." required />
+              </div>
+              <Button type="submit" className="button--full">Gửi tin nhắn ngay</Button>
+            </form>
+          )}
+        </aside>
+      </div>
+    </main>
+  );
+}
+
+export function ReturnPolicyPage() {
+  return (
+    <main className="page-shell container">
+      <Breadcrumb items={[{ label: "Trang chủ", href: "/" }, { label: "Chính sách đổi trả" }]} />
+      <section className="editorial-hero">
+        <p className="eyebrow">Cam kết chất lượng</p>
+        <h1>Chính sách đổi trả & hoàn tiền</h1>
+        <p>Quy định đổi trả minh bạch nhằm đảm bảo quyền lợi tối đa cho khách hàng khi mua sắm đặc sản Nước mắm Nam Ô Hương Làng Cổ.</p>
+      </section>
+
+      <section className="editorial-content">
+        <h2>1. Thời hạn và điều kiện đổi trả</h2>
+        <p>Khách hàng được quyền yêu cầu đổi mới sản phẩm hoặc hoàn tiền trong vòng <strong>07 ngày</strong> kể từ thời điểm nhận hàng theo biên bản giao nhận của đơn vị vận chuyển.</p>
+        <p>Các trường hợp áp dụng đổi trả miễn phí 100%:</p>
+        <ul>
+          <li>Chai mắm bị nứt, vỡ, sứt mẻ cổ chai do quá trình đóng gói hoặc vận chuyển đường dài.</li>
+          <li>Màng seal nắp chai bị rách, hở hoặc có hiện tượng rò rỉ nước mắm ra ngoài bao bì.</li>
+          <li>Giao không đúng số lượng, sai phân loại dung tích (ví dụ đặt chai thủy tinh giao chai nhựa, hoặc thiếu hộp quà tặng).</li>
+        </ul>
+
+        <h2>2. Quy trình xử lý đổi trả</h2>
+        <ol>
+          <li><strong>Bước 1:</strong> Khi bóc hàng, quý khách vui lòng chụp ảnh hoặc quay video ngắn thể hiện rõ tình trạng kiện hàng và sản phẩm bị lỗi.</li>
+          <li><strong>Bước 2:</strong> Liên hệ ngay qua Hotline / Zalo: <strong>0935 998 908</strong> hoặc email <strong>huonglangco.namo@gmail.com</strong>, cung cấp mã đơn hàng.</li>
+          <li><strong>Bước 3:</strong> Cơ sở Hương Làng Cổ sẽ lập tức gửi kiện hàng mới thay thế hoàn toàn miễn phí (bao gồm cả phí ship gửi bù) hoặc chuyển khoản hoàn tiền 100% lại cho quý khách trong vòng 24 giờ làm việc.</li>
+        </ol>
+
+        <h2>3. Lưu ý quan trọng về đặc tính nước mắm truyền thống</h2>
+        <p>Nước mắm Nam Ô Hương Làng Cổ là nước mắm nhĩ 100% nguyên chất từ cá cơm than và muối biển Sa Huỳnh, <strong>không sử dụng chất chống oxy hóa sulfite hay phẩm màu hóa học</strong>.</p>
+        <p>Hiện tượng nước mắm <em>sẫm màu lại sau một thời gian mở nắp chai</em> tiếp xúc với không khí là phản ứng oxy hóa hoàn toàn tự nhiên của đạm acid amin nguyên chất. Đây là bảo chứng của nước mắm sạch không phụ gia hóa học và không thuộc trường hợp sản phẩm lỗi.</p>
+      </section>
+    </main>
+  );
+}
+
+export function PrivacyPolicyPage() {
+  return (
+    <main className="page-shell container">
+      <Breadcrumb items={[{ label: "Trang chủ", href: "/" }, { label: "Chính sách bảo mật" }]} />
+      <section className="editorial-hero">
+        <p className="eyebrow">An toàn thông tin</p>
+        <h1>Chính sách bảo mật thông tin khách hàng</h1>
+        <p>Tuân thủ Nghị định 13/2023/NĐ-CP về bảo vệ dữ liệu cá nhân trong hoạt động thương mại điện tử.</p>
+      </section>
+
+      <section className="editorial-content">
+        <h2>1. Mục đích thu thập dữ liệu cá nhân</h2>
+        <p>Chúng tôi chỉ thu thập các thông tin tối thiểu cần thiết để phục vụ quá trình mua hàng và giao nhận đặc sản:</p>
+        <ul>
+          <li>Họ và tên khách hàng, số điện thoại liên lạc.</li>
+          <li>Địa chỉ nhận hàng (số nhà, phường/xã, quận/huyện, tỉnh/thành phố).</li>
+          <li>Địa chỉ email (để gửi hóa đơn và thông báo trạng thái đơn hàng).</li>
+        </ul>
+
+        <h2>2. Phạm vi sử dụng thông tin</h2>
+        <p>Thông tin thu thập chỉ được sử dụng cho các mục đích:</p>
+        <ul>
+          <li>Xử lý, đóng gói và bàn giao cho đơn vị chuyển phát (Viettel Post, GHTK, EMS) để giao hàng đến tay quý khách.</li>
+          <li>Thông báo xác nhận đơn hàng, cập nhật lộ trình giao hàng và chăm sóc sau bán hàng.</li>
+          <li>Không bao giờ buôn bán, chia sẻ hoặc tiết lộ thông tin của quý khách cho bất kỳ bên thứ ba nào vì mục đích quảng cáo rác.</li>
+        </ul>
+
+        <h2>3. Bảo mật thanh toán và lưu trữ dữ liệu</h2>
+        <p>Mật khẩu tài khoản của khách hàng được mã hóa an toàn một chiều bằng thuật toán Bcrypt. Thông tin thẻ hoặc tài khoản ngân hàng của quý khách không được lưu trữ trên máy chủ của chúng tôi mà được bảo mật thông qua giao thức ngân hàng Napas 247 và các đối tác thanh toán chuẩn quốc tế.</p>
+      </section>
+    </main>
+  );
+}
+
+export function TermsPage() {
+  return (
+    <main className="page-shell container">
+      <Breadcrumb items={[{ label: "Trang chủ", href: "/" }, { label: "Điều khoản dịch vụ" }]} />
+      <section className="editorial-hero">
+        <p className="eyebrow">Quy định mua hàng</p>
+        <h1>Điều khoản dịch vụ & Quy chế bán hàng</h1>
+        <p>Các điều khoản và quy định giao dịch áp dụng cho tất cả khách hàng đặt mua sản phẩm tại website Nước mắm Nam Ô Hương Làng Cổ.</p>
+      </section>
+
+      <section className="editorial-content">
+        <h2>1. Quy định đặt hàng và xác nhận đơn</h2>
+        <p>Khi quý khách hoàn tất biểu mẫu đặt hàng trực tuyến, hệ thống sẽ tự động tạo một mã đơn hàng duy nhất và gửi email xác nhận. Đơn hàng sẽ được nhân viên xưởng liên hệ xác nhận thông tin trước khi xuất kho đóng gói.</p>
+
+        <h2>2. Chính sách kiểm tra hàng trước khi thanh toán (Đồng kiểm)</h2>
+        <p>Chúng tôi áp dụng chính sách <strong>đồng kiểm 100%</strong> đối với tất cả đơn hàng giao toàn quốc. Quý khách hoàn toàn được quyền mở thùng carton kiểm tra số lượng chai, mẫu mã bao bì và tính nguyên vẹn trước khi thanh toán tiền mặt (COD) cho nhân viên giao hàng.</p>
+
+        <h2>3. Phương thức thanh toán chấp nhận</h2>
+        <ul>
+          <li><strong>Thanh toán khi nhận hàng (COD):</strong> Quý khách thanh toán tiền mặt trực tiếp cho bưu tá khi nhận kiện hàng.</li>
+          <li><strong>Chuyển khoản ngân hàng tự động (VietQR / Napas 247):</strong> Quét mã QR hiển thị kèm mã đơn hàng. Tiền được đối soát tự động và đơn hàng được ưu tiên xuất kho nhanh nhất.</li>
+          <li><strong>Thanh toán trực tuyến Sandbox / Quốc tế:</strong> Được áp dụng theo các cổng thanh toán tích hợp trên website.</li>
+        </ul>
+      </section>
     </main>
   );
 }

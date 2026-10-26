@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { api, ApiError } from "@/lib/api";
+import { clearGuestCart, getGuestCart } from "@/lib/guest-cart";
 import type { Cart, StoreSettings, User } from "@/lib/types";
 
 interface StoreContextValue {
@@ -40,6 +41,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     try {
       const result = await api.me();
       setUser(result.user);
+      if (result.user) {
+        const guest = getGuestCart();
+        if (guest.items.length > 0) {
+          for (const item of guest.items) {
+            try {
+              await api.addCartItem(item.variant_id, item.quantity);
+            } catch {}
+          }
+          clearGuestCart();
+        }
+      }
     } catch (error) {
       setUser(null);
       if (error instanceof ApiError && error.status !== 401 && error.status !== 0) {
@@ -52,7 +64,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const refreshCart = useCallback(async () => {
     if (!user) {
-      setCart(null);
+      setCart(getGuestCart());
       setCartLoading(false);
       return;
     }

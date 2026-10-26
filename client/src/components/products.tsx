@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { formatDate } from "@/lib/format";
+import { addGuestCartItem } from "@/lib/guest-cart";
 import type { Category, PageResult, Product, ProductVariant, Review } from "@/lib/types";
 import { useStore } from "./providers";
 import { Breadcrumb, Button, EmptyState, ErrorState, Loading, Pagination, Price, ProductImage, Rating, SectionHeading } from "./ui";
@@ -18,19 +19,31 @@ export function ProductCard({ product }: { product: Product }) {
   async function addToCart(event: React.MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
     event.stopPropagation();
-    if (!user) {
-      router.push(`/dang-nhap?next=${encodeURIComponent("/gio-hang")}`);
-      return;
-    }
     if (!variant) {
       notify("Sản phẩm chưa có phiên bản đang bán.", "error");
       return;
     }
     setBusy(true);
     try {
-      await api.addCartItem(variant.id, 1);
-      await refreshCart();
-      notify("Đã thêm sản phẩm vào giỏ hàng.");
+      if (!user) {
+        addGuestCartItem({
+          variant_id: variant.id,
+          quantity: 1,
+          variant_name: variant.name,
+          sku: variant.sku,
+          price: variant.price,
+          product_id: product.id,
+          product_name: product.name,
+          slug: product.slug,
+          available_quantity: 999,
+        });
+        await refreshCart();
+        notify("Đã thêm sản phẩm vào giỏ hàng.");
+      } else {
+        await api.addCartItem(variant.id, 1);
+        await refreshCart();
+        notify("Đã thêm sản phẩm vào giỏ hàng.");
+      }
     } catch (error) {
       notify(error instanceof ApiError ? error.message : "Không thể thêm vào giỏ hàng.", "error");
     } finally {
@@ -342,20 +355,33 @@ export function ProductDetail({ initialProduct }: { initialProduct: Product }) {
   }, [initialProduct.id]);
 
   async function add(buyNow: boolean) {
-    if (!user) {
-      router.push(`/dang-nhap?next=${encodeURIComponent(buyNow ? "/thanh-toan" : "/gio-hang")}`);
-      return;
-    }
     if (!selected || outOfStock) {
       notify("Phiên bản này hiện chưa có hàng.", "error");
       return;
     }
     setAddBusy(true);
     try {
-      await api.addCartItem(selected.id, quantity);
-      await refreshCart();
-      if (buyNow) router.push("/thanh-toan");
-      else notify("Đã thêm sản phẩm vào giỏ hàng.");
+      if (!user) {
+        addGuestCartItem({
+          variant_id: selected.id,
+          quantity,
+          variant_name: selected.name,
+          sku: selected.sku,
+          price: selected.price,
+          product_id: initialProduct.id,
+          product_name: initialProduct.name,
+          slug: initialProduct.slug,
+          available_quantity: selected.available_quantity ?? 999,
+        });
+        await refreshCart();
+        if (buyNow) router.push("/gio-hang");
+        else notify("Đã thêm sản phẩm vào giỏ hàng.");
+      } else {
+        await api.addCartItem(selected.id, quantity);
+        await refreshCart();
+        if (buyNow) router.push("/thanh-toan");
+        else notify("Đã thêm sản phẩm vào giỏ hàng.");
+      }
     } catch (error) {
       notify(error instanceof ApiError ? error.message : "Không thể thêm vào giỏ hàng.", "error");
     } finally {

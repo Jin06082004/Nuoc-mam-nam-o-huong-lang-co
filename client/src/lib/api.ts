@@ -205,6 +205,22 @@ export const api = {
   }) {
     return request<Order>("/orders", { method: "POST", body: JSON.stringify(input) });
   },
+  createPaypalOrder(orderId: number) {
+    return request<{ paypal_order_id: string; usd_amount: string; approval_url?: string }>(`/orders/${orderId}/paypal/create`, {
+      method: "POST",
+    });
+  },
+  capturePaypalOrder(orderId: number, paypalOrderId: string) {
+    return request<{ success: boolean; status: string }>(`/orders/${orderId}/paypal/capture`, {
+      method: "POST",
+      body: JSON.stringify({ paypal_order_id: paypalOrderId }),
+    });
+  },
+  simulateSepayPayment(orderId: number) {
+    return request<{ success: boolean; message: string; simulated: boolean }>(`/orders/${orderId}/simulate-sepay`, {
+      method: "POST",
+    });
+  },
   videos() {
     return requestPage<Video>("/videos?limit=20");
   },

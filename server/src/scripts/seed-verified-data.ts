@@ -30,10 +30,16 @@ async function seedVerifiedData(): Promise<void> {
         logo_url = '/images/logo.jpg',
         store_address = 'Tổ 97 (Nam Ô 2), Kiệt 884/74/4 Nguyễn Lương Bằng, Phường Hòa Hiệp Nam, Quận Liên Chiểu, TP. Đà Nẵng',
         contact_phone = '0935 998 908',
+        contact_email = 'huonglangco.namo@gmail.com',
         shipping_fee = 30000.00,
         free_shipping_enabled = 1,
         free_shipping_minimum = 300000.00,
         cod_enabled = 1,
+        bank_transfer_enabled = 1,
+        bank_name = 'ACMEBank',
+        bank_account_number = '3897126450',
+        bank_account_holder = 'NGUYEN NGUYEN PHUC',
+        bank_branch = 'SePay Sandbox (TK ảo: SBPAY9735061428)',
         facebook_url = 'https://www.facebook.com/huonglangco.vn',
         updated_at = NOW()
       WHERE id = 1

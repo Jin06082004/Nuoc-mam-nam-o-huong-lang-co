@@ -80,28 +80,41 @@ function patchInputFileSystem(fsObj: any) {
   }
 }
 
+const isTurbo = Boolean(
+  process.env.TURBOPACK ||
+  process.argv.some((arg) => arg.includes("turbo"))
+);
+
 const nextConfig: NextConfig = {
   poweredByHeader: false,
-  webpack: (config) => {
-    config.plugins = config.plugins || [];
-    config.plugins.push({
-      apply(compiler: any) {
-        patchInputFileSystem(compiler.inputFileSystem);
-        patchInputFileSystem(compiler.inputFileSystem?.fileSystem);
+  ...(isTurbo
+    ? {
+        turbopack: {},
+      }
+    : {
+        webpack: (config) => {
+          // Disable persistent packfile caching on Windows NTFS/exFAT to avoid PackFileCacheStrategy snapshot errors
+          config.cache = false;
+          config.plugins = config.plugins || [];
+          config.plugins.push({
+            apply(compiler: any) {
+              patchInputFileSystem(compiler.inputFileSystem);
+              patchInputFileSystem(compiler.inputFileSystem?.fileSystem);
 
-        compiler.hooks.beforeRun.tap("PatchInputFsBeforeRun", (comp: any) => {
-          patchInputFileSystem(comp.inputFileSystem);
-          patchInputFileSystem(comp.inputFileSystem?.fileSystem);
-        });
+              compiler.hooks.beforeRun.tap("PatchInputFsBeforeRun", (comp: any) => {
+                patchInputFileSystem(comp.inputFileSystem);
+                patchInputFileSystem(comp.inputFileSystem?.fileSystem);
+              });
 
-        compiler.hooks.compilation.tap("PatchInputFsCompilation", (compilation: any) => {
-          patchInputFileSystem(compilation.inputFileSystem);
-          patchInputFileSystem(compilation.inputFileSystem?.fileSystem);
-        });
-      },
-    });
-    return config;
-  },
+              compiler.hooks.compilation.tap("PatchInputFsCompilation", (compilation: any) => {
+                patchInputFileSystem(compilation.inputFileSystem);
+                patchInputFileSystem(compilation.inputFileSystem?.fileSystem);
+              });
+            },
+          });
+          return config;
+        },
+      }),
 };
 
 export default nextConfig;

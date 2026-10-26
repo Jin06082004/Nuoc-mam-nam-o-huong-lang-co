@@ -12,6 +12,7 @@ const navigation = [
   { label: "Sản phẩm", href: "/san-pham" },
   { label: "Câu chuyện", href: "/gioi-thieu" },
   { label: "Bài viết", href: "/blog" },
+  { label: "Liên hệ", href: "/lien-he" },
 ];
 
 export function SiteHeader() {
@@ -139,17 +140,26 @@ export function SiteFooter() {
         <div>
           <h2>Khám phá</h2>
           <Link href="/gioi-thieu">Về thương hiệu</Link>
-          <Link href="/blog">Bài viết</Link>
-          {storeSettings?.contact_phone && <a href={`tel:${storeSettings.contact_phone}`}>{storeSettings.contact_phone}</a>}
-          {storeSettings?.contact_email && <a href={`mailto:${storeSettings.contact_email}`}>{storeSettings.contact_email}</a>}
-          {storeSettings?.store_address && <span>{storeSettings.store_address}</span>}
+          <Link href="/blog">Bài viết di sản</Link>
+          <Link href="/lien-he">Liên hệ & Thăm xưởng</Link>
+        </div>
+        <div>
+          <h2>Chính sách</h2>
+          <Link href="/chinh-sach-doi-tra">Chính sách đổi trả</Link>
+          <Link href="/chinh-sach-bao-mat">Chính sách bảo mật</Link>
+          <Link href="/dieu-khoan-dich-vu">Điều khoản dịch vụ</Link>
         </div>
         <div>
           <h2>Kết nối</h2>
+          {storeSettings?.contact_phone && <a href={`tel:${storeSettings.contact_phone}`}>Hotline: {storeSettings.contact_phone}</a>}
+          {storeSettings?.contact_email && <a href={`mailto:${storeSettings.contact_email}`}>Email: {storeSettings.contact_email}</a>}
+          {storeSettings?.store_address && <span style={{ fontSize: "0.85rem", display: "block", marginTop: "4px" }}>{storeSettings.store_address}</span>}
           {storeSettingsError && <p className="footer-note">Chưa tải được thông tin cửa hàng.</p>}
-          {socialLinks.map((link) => (
-            <a key={link.name} href={link.url} target="_blank" rel="noopener noreferrer">{link.name} ↗</a>
-          ))}
+          <div style={{ marginTop: "8px", display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            {socialLinks.map((link) => (
+              <a key={link.name} href={link.url} target="_blank" rel="noopener noreferrer">{link.name} ↗</a>
+            ))}
+          </div>
           {!storeSettingsLoading && !storeSettingsError && socialLinks.length === 0 && <p className="footer-note">Chưa có liên kết mạng xã hội.</p>}
           {storeSettingsLoading && <span className="footer-note">Đang tải thông tin…</span>}
         </div>
