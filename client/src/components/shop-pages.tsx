@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { api, ApiError } from "@/lib/api";
 import { formatDate, orderStatus } from "@/lib/format";
-import { removeGuestCartItem, updateGuestCartItem } from "@/lib/guest-cart";
+import { clearGuestCart, removeGuestCartItem, updateGuestCartItem } from "@/lib/guest-cart";
 import type { BlogPost, Order } from "@/lib/types";
 import { useStore } from "./providers";
 import { Breadcrumb, Button, EmptyState, ErrorState, Loading, Price, ProductImage } from "./ui";
@@ -16,12 +16,55 @@ export function CartPage() {
   const [error, setError] = useState("");
   const [busyItem, setBusyItem] = useState<number | null>(null);
   const [retryKey, setRetryKey] = useState(0);
+  const [couponInput, setCouponInput] = useState("");
+  const [couponError, setCouponError] = useState("");
+  const [couponBusy, setCouponBusy] = useState(false);
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; name?: string; discount_amount: number } | null>(null);
+
   useEffect(() => {
     void refreshCart().catch(() => setError("Không thể tải giỏ hàng."));
   }, [refreshCart, retryKey]);
 
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem("applied-coupon");
+      if (stored) {
+        setAppliedCoupon(JSON.parse(stored));
+      }
+    } catch {}
+  }, []);
+
   const items = cart?.items ?? [];
   const total = items.reduce((sum, item) => sum + Number(item.line_total), 0);
+  const discountAmount = appliedCoupon ? Math.min(Number(appliedCoupon.discount_amount), total) : 0;
+  const finalTotal = Math.max(0, total - discountAmount);
+
+  async function applyCoupon() {
+    const code = couponInput.trim();
+    if (!code) return;
+    setCouponBusy(true);
+    setCouponError("");
+    try {
+      const result = await api.validateCoupon(code, total);
+      setAppliedCoupon(result);
+      sessionStorage.setItem("applied-coupon", JSON.stringify(result));
+      notify(`Áp dụng mã ưu đãi ${result.code} thành công!`);
+    } catch (cause) {
+      const msg = cause instanceof ApiError ? cause.message : "Mã ưu đãi không hợp lệ.";
+      setCouponError(msg);
+      notify(msg, "error");
+    } finally {
+      setCouponBusy(false);
+    }
+  }
+
+  function removeCoupon() {
+    setAppliedCoupon(null);
+    setCouponInput("");
+    setCouponError("");
+    sessionStorage.removeItem("applied-coupon");
+    notify("Đã gỡ bỏ mã giảm giá.");
+  }
 
   async function updateItem(id: number, quantity: number) {
     setBusyItem(id);
@@ -98,19 +141,47 @@ export function CartPage() {
                   </div>
                   <aside className="summary-card">
                     <h2>Tóm tắt đơn hàng</h2>
-                    <div className="summary-row"><span>Tạm tính</span><Price value={total} /></div>
-                    <div className="summary-row"><span>Phí giao hàng</span><span>Tính khi đặt hàng</span></div>
-                    <div className="summary-row summary-row--total"><strong>Tổng tạm tính</strong><Price value={total} /></div>
-                    <p>Giá và tồn kho sẽ được máy chủ kiểm tra lại khi bạn đặt hàng.</p>
-                    {user ? (
-                      <Button href="/thanh-toan" className="button--full">Tiến hành thanh toán</Button>
-                    ) : (
-                      <div style={{ display: "grid", gap: "8px" }}>
-                        <Button href="/dang-nhap?next=%2Fthanh-toan" className="button--full">Đăng nhập để thanh toán</Button>
-                        <span style={{ fontSize: "0.82rem", color: "var(--color-muted)", textAlign: "center" }}>
-                          Sản phẩm trong giỏ sẽ được tự động lưu vào tài khoản khi bạn đăng nhập.
-                        </span>
+                    <div className="coupon-box">
+                      <label className="coupon-box__label" htmlFor="cart-coupon">Mã ưu đãi / Giảm giá</label>
+                      <div className="coupon-input-wrap">
+                        <input
+                          id="cart-coupon"
+                          type="text"
+                          placeholder="Nhập mã ưu đãi…"
+                          value={couponInput}
+                          onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                          disabled={couponBusy || Boolean(appliedCoupon)}
+                        />
+                        {appliedCoupon ? (
+                          <button type="button" className="button button--quiet" onClick={removeCoupon}>Gỡ</button>
+                        ) : (
+                          <button type="button" className="button button--secondary" disabled={couponBusy || !couponInput.trim()} onClick={() => void applyCoupon()}>
+                            {couponBusy ? "…" : "Áp dụng"}
+                          </button>
+                        )}
                       </div>
+                      {couponError && <span className="coupon-error-tag">{couponError}</span>}
+                      {appliedCoupon && (
+                        <span className="coupon-success-tag">
+                          ✓ Đã áp dụng mã {appliedCoupon.code} (-{new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(discountAmount)})
+                        </span>
+                      )}
+                    </div>
+                    <div className="summary-row"><span>Tạm tính</span><Price value={total} /></div>
+                    {appliedCoupon && (
+                      <div className="summary-row" style={{ color: "var(--color-wood)", fontWeight: 600 }}>
+                        <span>Giảm giá ({appliedCoupon.code})</span>
+                        <span>-{new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(discountAmount)}</span>
+                      </div>
+                    )}
+                    <div className="summary-row"><span>Phí giao hàng</span><span>Tính khi thanh toán</span></div>
+                    <div className="summary-row summary-row--total"><strong>Tổng tạm tính</strong><Price value={finalTotal} /></div>
+                    <p>Giá và tồn kho sẽ được máy chủ kiểm tra lại khi bạn đặt hàng.</p>
+                    <Button href="/thanh-toan" className="button--full">Tiến hành thanh toán</Button>
+                    {!user && (
+                      <span style={{ fontSize: "0.82rem", color: "var(--color-muted)", textAlign: "center", display: "block", marginTop: "8px" }}>
+                        Khách vãng lai có thể đặt hàng ngay hoặc <Link href="/dang-nhap?next=%2Fthanh-toan" style={{ textDecoration: "underline", color: "var(--color-wood)" }}>đăng nhập</Link> để lưu lịch sử.
+                      </span>
                     )}
                     <Button href="/san-pham" variant="quiet" className="button--full">Tiếp tục mua hàng</Button>
                   </aside>
@@ -124,6 +195,7 @@ export function CartPage() {
 const checkoutSchema = z.object({
   customer_name: z.string().trim().min(2, "Vui lòng nhập họ tên.").max(150),
   customer_phone: z.string().trim().min(7, "Số điện thoại chưa hợp lệ.").max(32),
+  customer_email: z.string().trim().email("Email chưa đúng định dạng.").max(255).or(z.literal("")).optional(),
   shipping_province: z.string().trim().min(1, "Vui lòng nhập tỉnh/thành phố.").max(120),
   shipping_district: z.string().trim().max(120),
   shipping_ward: z.string().trim().max(120),
@@ -166,12 +238,16 @@ export function CheckoutPage() {
   const router = useRouter();
   const { user, cart, cartLoading, refreshCart, notify, storeSettings, storeSettingsLoading, storeSettingsError } = useStore();
   const [values, setValues] = useState<CheckoutValues>({
-    customer_name: "", customer_phone: "", shipping_province: "", shipping_district: "", shipping_ward: "",
+    customer_name: "", customer_phone: "", customer_email: "", shipping_province: "", shipping_district: "", shipping_ward: "",
     shipping_address_line: "", note: "", payment_method: "COD",
   });
   const [errors, setErrors] = useState<Partial<Record<keyof CheckoutValues, string>>>({});
   const [submitError, setSubmitError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [couponInput, setCouponInput] = useState("");
+  const [couponError, setCouponError] = useState("");
+  const [couponBusy, setCouponBusy] = useState(false);
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; name?: string; discount_amount: number } | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -179,8 +255,18 @@ export function CheckoutPage() {
       ...current,
       customer_name: current.customer_name || user.fullName,
       customer_phone: current.customer_phone || user.phone || "",
+      customer_email: current.customer_email || user.email || "",
     }));
   }, [user]);
+
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem("applied-coupon");
+      if (stored) {
+        setAppliedCoupon(JSON.parse(stored));
+      }
+    } catch {}
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -196,6 +282,46 @@ export function CheckoutPage() {
       setValues((current) => ({ ...current, payment_method: paymentMethods[0]! }));
     }
   }, [paymentMethods, values.payment_method]);
+
+  const total = cart?.items.reduce((sum, item) => sum + Number(item.line_total), 0) ?? 0;
+  const discountAmount = appliedCoupon ? Math.min(Number(appliedCoupon.discount_amount), total) : 0;
+  const subtotalAfterDiscount = Math.max(0, total - discountAmount);
+  const fee = storeSettings?.shipping_fee === null || storeSettings?.shipping_fee === undefined
+    ? null
+    : Number(storeSettings.shipping_fee);
+  const freeShipping = Boolean(storeSettings?.free_shipping_enabled)
+    && storeSettings?.free_shipping_minimum !== null
+    && storeSettings?.free_shipping_minimum !== undefined
+    && total >= Number(storeSettings.free_shipping_minimum);
+  const estimatedShipping = fee === null ? null : freeShipping ? 0 : fee;
+  const finalTotal = fee === null ? subtotalAfterDiscount : subtotalAfterDiscount + (estimatedShipping ?? 0);
+
+  async function applyCoupon() {
+    const code = couponInput.trim();
+    if (!code) return;
+    setCouponBusy(true);
+    setCouponError("");
+    try {
+      const result = await api.validateCoupon(code, total);
+      setAppliedCoupon(result);
+      sessionStorage.setItem("applied-coupon", JSON.stringify(result));
+      notify(`Áp dụng mã ưu đãi ${result.code} thành công!`);
+    } catch (cause) {
+      const msg = cause instanceof ApiError ? cause.message : "Mã ưu đãi không hợp lệ.";
+      setCouponError(msg);
+      notify(msg, "error");
+    } finally {
+      setCouponBusy(false);
+    }
+  }
+
+  function removeCoupon() {
+    setAppliedCoupon(null);
+    setCouponInput("");
+    setCouponError("");
+    sessionStorage.removeItem("applied-coupon");
+    notify("Đã gỡ bỏ mã giảm giá.");
+  }
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -213,16 +339,32 @@ export function CheckoutPage() {
     setSubmitError("");
     setLoading(true);
     try {
-      const { customer_name, customer_phone, shipping_province, shipping_district, shipping_ward, shipping_address_line, note, payment_method } = parsed.data;
+      const { customer_name, customer_phone, customer_email, shipping_province, shipping_district, shipping_ward, shipping_address_line, note, payment_method } = parsed.data;
       const order = await api.createOrder({
-        payment_method, customer_name, customer_phone, shipping_province, shipping_address_line,
-        shipping_district: shipping_district || undefined, shipping_ward: shipping_ward || undefined,
+        payment_method,
+        customer_name,
+        customer_phone,
+        customer_email: customer_email?.trim() || undefined,
+        shipping_province,
+        shipping_address_line,
+        shipping_district: shipping_district || undefined,
+        shipping_ward: shipping_ward || undefined,
         note: note || undefined,
+        coupon_code: appliedCoupon?.code,
+        items: !user && cart?.items.length
+          ? cart.items.map((i) => ({ variant_id: i.variant_id, quantity: i.quantity }))
+          : undefined,
       });
+      if (!user) {
+        clearGuestCart();
+      }
       await refreshCart();
+      sessionStorage.removeItem("applied-coupon");
       sessionStorage.setItem("last-order-id", String(order.id));
+      sessionStorage.setItem("last-order-code", order.order_code);
+      sessionStorage.setItem("last-order-phone", order.customer_phone);
       notify("Đặt hàng thành công.");
-      router.push(`/dat-hang-thanh-cong?id=${encodeURIComponent(String(order.id))}`);
+      router.push(`/dat-hang-thanh-cong?id=${encodeURIComponent(String(order.id))}&code=${encodeURIComponent(order.order_code)}&phone=${encodeURIComponent(order.customer_phone)}`);
     } catch (cause) {
       const message = cause instanceof ApiError ? cause.message : "Chưa thể gửi đơn hàng. Vui lòng thử lại.";
       setSubmitError(message);
@@ -237,24 +379,14 @@ export function CheckoutPage() {
     setErrors((current) => ({ ...current, [name]: undefined }));
   }
 
-  const total = cart?.items.reduce((sum, item) => sum + Number(item.line_total), 0) ?? 0;
-  const fee = storeSettings?.shipping_fee === null || storeSettings?.shipping_fee === undefined
-    ? null
-    : Number(storeSettings.shipping_fee);
-  const freeShipping = Boolean(storeSettings?.free_shipping_enabled)
-    && storeSettings?.free_shipping_minimum !== null
-    && storeSettings?.free_shipping_minimum !== undefined
-    && total >= Number(storeSettings.free_shipping_minimum);
-  const estimatedShipping = fee === null ? null : freeShipping ? 0 : fee;
   return (
     <main className="page-shell container">
       <Breadcrumb items={[{ label: "Trang chủ", href: "/" }, { label: "Giỏ hàng", href: "/gio-hang" }, { label: "Thanh toán" }]} />
       <section className="page-heading"><p className="eyebrow">Hoàn tất đơn hàng</p><h1>Thanh toán</h1></section>
-      {!user ? <EmptyState title="Vui lòng đăng nhập" description="Checkout hiện chỉ dành cho khách hàng đã đăng nhập." action={<Button href="/dang-nhap?next=%2Fthanh-toan">Đăng nhập</Button>} />
-        : cartLoading && !cart ? <Loading label="Đang kiểm tra giỏ hàng…" />
-          : !cart?.items.length ? <EmptyState title="Giỏ hàng đang trống" description="Thêm sản phẩm vào giỏ trước khi thanh toán." action={<Button href="/san-pham">Xem sản phẩm</Button>} />
-            : (
-              <div className="checkout-layout">
+      {cartLoading && !cart ? <Loading label="Đang kiểm tra giỏ hàng…" />
+        : !cart?.items.length ? <EmptyState title="Giỏ hàng đang trống" description="Thêm sản phẩm vào giỏ trước khi thanh toán." action={<Button href="/san-pham">Xem sản phẩm</Button>} />
+          : (
+            <div className="checkout-layout">
                 <form className="checkout-form form-card" onSubmit={submit} noValidate>
                   <h2>Thông tin người nhận</h2>
                   <div className="form-grid">
@@ -265,6 +397,18 @@ export function CheckoutPage() {
                     <label htmlFor="customer_phone">Số điện thoại
                       <input id="customer_phone" type="tel" autoComplete="tel" value={values.customer_phone} onChange={(event) => field("customer_phone", event.target.value)} required />
                       {errors.customer_phone && <span className="field-error">{errors.customer_phone}</span>}
+                    </label>
+                    <label htmlFor="customer_email" className="form-grid__wide">
+                      Email nhận xác nhận đơn hàng <span className="optional">(không bắt buộc, để nhận mã đơn và hóa đơn điện tử)</span>
+                      <input
+                        id="customer_email"
+                        type="email"
+                        autoComplete="email"
+                        value={values.customer_email || ""}
+                        onChange={(event) => field("customer_email", event.target.value)}
+                        placeholder="ví dụ: khachhang@gmail.com"
+                      />
+                      {errors.customer_email && <span className="field-error">{errors.customer_email}</span>}
                     </label>
                     <label htmlFor="shipping_province">Tỉnh / thành phố
                       <input id="shipping_province" autoComplete="address-level1" value={values.shipping_province} onChange={(event) => field("shipping_province", event.target.value)} required />
@@ -395,10 +539,44 @@ export function CheckoutPage() {
                 <aside className="summary-card">
                   <h2>Đơn hàng của bạn</h2>
                   {cart.items.map((item) => <div className="summary-row" key={item.id}><span>{item.product_name} · {item.variant_name} × {item.quantity}</span><Price value={item.line_total} /></div>)}
+
+                  <div className="coupon-box" style={{ margin: "1rem 0" }}>
+                    <label className="coupon-box__label" htmlFor="checkout-coupon">Mã ưu đãi / Giảm giá</label>
+                    <div className="coupon-input-wrap">
+                      <input
+                        id="checkout-coupon"
+                        type="text"
+                        placeholder="Nhập mã ưu đãi…"
+                        value={couponInput}
+                        onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                        disabled={couponBusy || Boolean(appliedCoupon)}
+                      />
+                      {appliedCoupon ? (
+                        <button type="button" className="button button--quiet" onClick={removeCoupon}>Gỡ</button>
+                      ) : (
+                        <button type="button" className="button button--secondary" disabled={couponBusy || !couponInput.trim()} onClick={() => void applyCoupon()}>
+                          {couponBusy ? "…" : "Áp dụng"}
+                        </button>
+                      )}
+                    </div>
+                    {couponError && <span className="coupon-error-tag">{couponError}</span>}
+                    {appliedCoupon && (
+                      <span className="coupon-success-tag">
+                        ✓ Đã áp dụng mã {appliedCoupon.code} (-{new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(discountAmount)})
+                      </span>
+                    )}
+                  </div>
+
                   <div className="summary-row"><span>Tạm tính</span><Price value={total} /></div>
+                  {appliedCoupon && (
+                    <div className="summary-row" style={{ color: "var(--color-wood)", fontWeight: 600 }}>
+                      <span>Giảm giá ({appliedCoupon.code})</span>
+                      <span>-{new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(discountAmount)}</span>
+                    </div>
+                  )}
                   <div className="summary-row"><span>Phí giao hàng</span>{estimatedShipping === null ? <span>Chưa cấu hình</span> : <Price value={estimatedShipping} />}</div>
                   {freeShipping && <p>Đơn hàng đạt mức miễn phí vận chuyển.</p>}
-                  <div className="summary-row summary-row--total"><strong>Tổng dự kiến</strong>{estimatedShipping === null ? <span>Chưa xác định</span> : <Price value={total + estimatedShipping} />}</div>
+                  <div className="summary-row summary-row--total"><strong>Tổng thanh toán</strong>{estimatedShipping === null ? <span>Chưa xác định</span> : <Price value={finalTotal} />}</div>
                   <p>Giá, khuyến mãi, phí vận chuyển và tồn kho được máy chủ xác thực khi đặt hàng.</p>
                 </aside>
               </div>
@@ -409,27 +587,31 @@ export function CheckoutPage() {
 
 export function OrderSuccessPage() {
   const searchParams = useSearchParams();
-  const { storeSettings, notify } = useStore();
+  const { user, storeSettings, notify } = useStore();
   const id = Number(searchParams.get("id"));
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   useEffect(() => {
     const stored = sessionStorage.getItem("last-order-id");
+    const storedCode = sessionStorage.getItem("last-order-code");
+    const storedPhone = sessionStorage.getItem("last-order-phone");
     const orderId = Number.isInteger(id) && id > 0 ? id : Number(stored);
+    const code = searchParams.get("code") || storedCode || undefined;
+    const phone = searchParams.get("phone") || storedPhone || undefined;
     if (!orderId) {
       setError("Không tìm thấy thông tin đơn hàng gần đây.");
       setLoading(false);
       return;
     }
     let active = true;
-    void api.order(orderId).then((result) => {
+    void api.order(orderId, { code, phone }).then((result) => {
       if (active) setOrder(result);
     }).catch((cause) => {
       if (active) setError(cause instanceof ApiError ? cause.message : "Không thể tải thông tin đơn hàng.");
     }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [id]);
+  }, [id, searchParams]);
 
   return (
     <main className="page-shell container">
@@ -495,7 +677,10 @@ export function OrderSuccessPage() {
                               onClick={async () => {
                                 try {
                                   await api.simulateSepayPayment(order.id);
-                                  const refreshed = await api.order(order.id);
+                                  const refreshed = await api.order(order.id, {
+                                    code: order.order_code,
+                                    phone: order.customer_phone,
+                                  });
                                   setOrder(refreshed);
                                   notify("Đã giả lập webhook SePay thành công! Đơn hàng đã chuyển sang trạng thái ĐÃ XÁC NHẬN.", "success");
                                 } catch {
@@ -519,7 +704,15 @@ export function OrderSuccessPage() {
               </div>
             )}
         <div className="success-card__actions">
-          {order && <Button href={`/tai-khoan/don-hang/${order.id}`}>Xem chi tiết đơn hàng</Button>}
+          {order && (
+            user ? (
+              <Button href={`/tai-khoan/don-hang/${order.id}`}>Xem chi tiết đơn hàng</Button>
+            ) : (
+              <Button href={`/tra-cuu-don-hang?code=${encodeURIComponent(order.order_code)}&phone=${encodeURIComponent(order.customer_phone)}`}>
+                Theo dõi hành trình đơn hàng
+              </Button>
+            )
+          )}
           <Button href="/san-pham" variant="secondary">Tiếp tục mua sắm</Button>
         </div>
       </section>
@@ -1155,3 +1348,272 @@ export function TermsPage() {
     </main>
   );
 }
+
+export function OrderLookupPage() {
+  const searchParams = useSearchParams();
+  const { storeSettings, notify } = useStore();
+  const [orderCode, setOrderCode] = useState(searchParams.get("code") || "");
+  const [phone, setPhone] = useState(searchParams.get("phone") || "");
+  const [order, setOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [hasSearched, setHasSearched] = useState(false);
+  const [cancelBusy, setCancelBusy] = useState(false);
+
+  const fetchOrder = useCallback(async (code: string, phoneNumber: string) => {
+    if (!code.trim() || !phoneNumber.trim()) return;
+    setLoading(true);
+    setError("");
+    setHasSearched(true);
+    try {
+      const result = await api.lookupOrder({ order_code: code.trim(), phone: phoneNumber.trim() });
+      setOrder(result);
+    } catch (cause) {
+      setOrder(null);
+      setError(cause instanceof ApiError ? cause.message : "Không tìm thấy đơn hàng. Vui lòng kiểm tra lại thông tin.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const code = searchParams.get("code");
+    const phoneNumber = searchParams.get("phone");
+    if (code && phoneNumber) {
+      setOrderCode(code);
+      setPhone(phoneNumber);
+      void fetchOrder(code, phoneNumber);
+    }
+  }, [searchParams, fetchOrder]);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!orderCode.trim()) {
+      setError("Vui lòng nhập mã đơn hàng.");
+      return;
+    }
+    if (!phone.trim()) {
+      setError("Vui lòng nhập số điện thoại đặt hàng.");
+      return;
+    }
+    await fetchOrder(orderCode, phone);
+  }
+
+  async function handleCancel() {
+    if (!order) return;
+    if (!window.confirm("Bạn có chắc chắn muốn hủy đơn hàng này không?")) return;
+    setCancelBusy(true);
+    try {
+      await api.cancelPublicOrder({ order_code: order.order_code, phone: order.customer_phone });
+      notify("Đã hủy đơn hàng thành công.");
+      await fetchOrder(order.order_code, order.customer_phone);
+    } catch (cause) {
+      notify(cause instanceof ApiError ? cause.message : "Chưa thể hủy đơn hàng.", "error");
+    } finally {
+      setCancelBusy(false);
+    }
+  }
+
+  return (
+    <main className="page-shell container">
+      <Breadcrumb items={[{ label: "Trang chủ", href: "/" }, { label: "Tra cứu đơn hàng" }]} />
+      <section className="page-heading">
+        <p className="eyebrow">Hành trình đơn hàng</p>
+        <h1>Tra cứu đơn hàng</h1>
+        <p>Kiểm tra thông tin chi tiết, tiến độ giao hàng và quét mã thanh toán VietQR.</p>
+      </section>
+
+      <div className="lookup-layout">
+        <form className="lookup-form-card" onSubmit={handleSubmit}>
+          <div className="lookup-form-grid">
+            <label htmlFor="lookup_code">
+              Mã đơn hàng <strong>*</strong>
+              <input
+                id="lookup_code"
+                type="text"
+                placeholder="Ví dụ: NO..."
+                value={orderCode}
+                onChange={(e) => setOrderCode(e.target.value.toUpperCase())}
+                required
+              />
+            </label>
+            <label htmlFor="lookup_phone">
+              Số điện thoại người nhận <strong>*</strong>
+              <input
+                id="lookup_phone"
+                type="tel"
+                placeholder="Số điện thoại lúc đặt hàng"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                required
+              />
+            </label>
+          </div>
+          {error && <div className="inline-error" style={{ marginBottom: "1rem" }}>{error}</div>}
+          <Button type="submit" disabled={loading} className="button--full">
+            {loading ? "Đang tra cứu…" : "Tra cứu đơn hàng"}
+          </Button>
+        </form>
+
+        {loading && <Loading label="Đang đối soát thông tin đơn hàng…" />}
+
+        {!loading && hasSearched && !order && !error && (
+          <EmptyState
+            title="Không tìm thấy đơn hàng"
+            description="Vui lòng kiểm tra lại chính xác Mã đơn hàng và Số điện thoại đã dùng khi mua hàng."
+          />
+        )}
+
+        {order && (
+          <article className="lookup-result-card">
+            <div className="order-status-banner">
+              <div>
+                <span style={{ fontSize: "0.85rem", color: "var(--color-muted)", display: "block" }}>
+                  Mã đơn hàng: <strong>{order.order_code}</strong>
+                </span>
+                <span style={{ fontSize: "0.8rem", color: "var(--color-muted)" }}>
+                  Ngày đặt: {formatDate(order.created_at)}
+                </span>
+              </div>
+              <span className={`order-status-badge order-status-badge--${order.status.toLowerCase()}`}>
+                {orderStatus(order.status)}
+              </span>
+            </div>
+
+            <h3 className="lookup-section-title">Danh sách sản phẩm</h3>
+            <div className="lookup-items-list">
+              {order.items?.map((item, index) => (
+                <div className="lookup-item-row" key={index}>
+                  <div>
+                    <strong>{item.product_name}</strong>
+                    <div style={{ fontSize: "0.85rem", color: "var(--color-muted)" }}>
+                      {item.variant_name} · Số lượng: {item.quantity}
+                    </div>
+                  </div>
+                  <div><Price value={item.subtotal} /></div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ marginTop: "1.25rem", padding: "1rem", background: "var(--color-sand-light)", borderRadius: "8px" }}>
+              <div className="summary-row"><span>Tạm tính</span><Price value={order.subtotal} /></div>
+              {Number(order.discount_amount) > 0 && (
+                <div className="summary-row" style={{ color: "var(--color-wood)" }}>
+                  <span>Giảm giá ({order.coupon_code || "Ưu đãi"})</span>
+                  <span>-{new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(Number(order.discount_amount))}</span>
+                </div>
+              )}
+              <div className="summary-row">
+                <span>Phí vận chuyển</span>
+                {Number(order.shipping_fee) === 0 ? "Miễn phí" : <Price value={order.shipping_fee} />}
+              </div>
+              <div className="summary-row summary-row--total" style={{ borderTop: "1px dashed var(--color-line)", paddingTop: "8px", marginTop: "6px" }}>
+                <strong>Tổng thanh toán</strong>
+                <Price value={order.total_amount} />
+              </div>
+            </div>
+
+            <h3 className="lookup-section-title">Thông tin giao nhận</h3>
+            <div className="lookup-info-grid">
+              <div className="lookup-info-item">
+                <strong>Người nhận:</strong>
+                {order.customer_name}
+              </div>
+              <div className="lookup-info-item">
+                <strong>Số điện thoại:</strong>
+                {order.customer_phone}
+              </div>
+              <div className="lookup-info-item" style={{ gridColumn: "1 / -1" }}>
+                <strong>Địa chỉ giao hàng:</strong>
+                {[order.shipping_address_line, order.shipping_ward, order.shipping_district, order.shipping_province].filter(Boolean).join(", ")}
+              </div>
+              {order.note && (
+                <div className="lookup-info-item" style={{ gridColumn: "1 / -1" }}>
+                  <strong>Ghi chú:</strong>
+                  {order.note}
+                </div>
+              )}
+            </div>
+
+            <h3 className="lookup-section-title">Thanh toán</h3>
+            <p style={{ margin: "4px 0", fontSize: "0.95rem" }}>
+              Phương thức: <strong>{order.payments?.[0]?.payment_method === "COD" ? "Thanh toán khi nhận hàng (COD)" : "Chuyển khoản VietQR (Napas 247)"}</strong> · Trạng thái: <strong>{order.payments?.[0]?.payment_status === "PAID" ? "Đã thanh toán" : "Chờ thanh toán"}</strong>
+            </p>
+
+            {order.payments?.[0]?.payment_method === "BANK_TRANSFER" && order.payments?.[0]?.payment_status !== "PAID" && (
+              <div className="bank-transfer-details" style={{ marginTop: "1rem", padding: "1.25rem", background: "#fff", borderRadius: "8px", border: "1px solid var(--color-line)" }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "1.25rem", alignItems: "center" }}>
+                  <div style={{ textAlign: "center", background: "#fff", padding: "10px", borderRadius: "8px", border: "1px solid #ddd" }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={getVietQrUrl(storeSettings?.bank_account_number, storeSettings?.bank_name, order.total_amount, order.order_code)}
+                      alt={`Mã VietQR ${order.order_code}`}
+                      width={160}
+                      height={160}
+                      style={{ display: "block", margin: "0 auto" }}
+                    />
+                    <span style={{ fontSize: "0.72rem", color: "#666", display: "block", marginTop: "4px", fontWeight: 600 }}>Quét mã qua App Ngân hàng</span>
+                  </div>
+                  <div style={{ flex: "1 1 240px" }}>
+                    <p style={{ margin: "3px 0", fontSize: "0.88rem" }}>Ngân hàng: <strong>{storeSettings?.bank_name || "ACMEBank"}</strong></p>
+                    <p style={{ margin: "3px 0", fontSize: "0.88rem" }}>
+                      Số tài khoản: <strong>{storeSettings?.bank_account_number || "3897126450"}</strong>
+                      <CopyTextButton text={storeSettings?.bank_account_number || "3897126450"} />
+                    </p>
+                    {storeSettings?.bank_branch && (
+                      <p style={{ margin: "3px 0", fontSize: "0.82rem", color: "var(--color-wood)" }}>
+                        {storeSettings.bank_branch}
+                        <CopyTextButton text="SBPAY9735061428" label="Chép TK ảo" />
+                      </p>
+                    )}
+                    <p style={{ margin: "3px 0", fontSize: "0.88rem" }}>Chủ tài khoản: <strong>{storeSettings?.bank_account_holder || "NGUYEN NGUYEN PHUC"}</strong></p>
+                    <p style={{ margin: "3px 0", fontSize: "0.88rem" }}>
+                      Số tiền: <strong>{new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(Number(order.total_amount))}</strong>
+                      <CopyTextButton text={String(order.total_amount)} label="Sao chép tiền" />
+                    </p>
+                    <div style={{ margin: "6px 0", fontSize: "0.88rem", background: "#FAF8F4", padding: "6px 10px", borderRadius: "6px", border: "1px dashed var(--color-gold)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span>Nội dung CK: <strong style={{ color: "var(--color-wood)" }}>{order.order_code}</strong></span>
+                      <CopyTextButton text={order.order_code} label="Sao chép" />
+                    </div>
+                    <div style={{ marginTop: "10px" }}>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await api.simulateSepayPayment(order.id);
+                            notify("Giả lập webhook SePay thành công!");
+                            await fetchOrder(order.order_code, order.customer_phone);
+                          } catch {
+                            notify("Không thể kích hoạt giả lập.", "error");
+                          }
+                        }}
+                        className="copy-pill-button"
+                        style={{ padding: "5px 12px", fontSize: "0.8rem", background: "#E8F5E9", color: "#1B5E20" }}
+                      >
+                        🧪 Giả lập thanh toán SePay thành công
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {order.can_cancel && (
+              <div style={{ marginTop: "2rem", paddingTop: "1.25rem", borderTop: "1px solid var(--color-line)", display: "flex", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  className="button button--danger"
+                  disabled={cancelBusy}
+                  onClick={() => void handleCancel()}
+                >
+                  {cancelBusy ? "Đang xử lý…" : "Hủy đơn hàng này"}
+                </button>
+              </div>
+            )}
+          </article>
+        )}
+      </div>
+    </main>
+  );
+}
+

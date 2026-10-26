@@ -187,8 +187,12 @@ export const api = {
   orders() {
     return requestPage<Order>("/orders?limit=100");
   },
-  order(id: number) {
-    return request<Order>(`/orders/${id}`);
+  order(id: number, params?: { code?: string; phone?: string }) {
+    const query = new URLSearchParams();
+    if (params?.code) query.set("code", params.code);
+    if (params?.phone) query.set("phone", params.phone);
+    const qStr = query.toString();
+    return request<Order>(`/orders/${id}${qStr ? `?${qStr}` : ""}`);
   },
   cancelOrder(id: number) {
     return request<{ id: number; status: string }>(`/orders/${id}/cancel`, { method: "PATCH", body: "{}" });
@@ -197,13 +201,40 @@ export const api = {
     payment_method: "COD" | "BANK_TRANSFER";
     customer_name: string;
     customer_phone: string;
+    customer_email?: string;
     shipping_address_line: string;
     shipping_ward?: string;
     shipping_district?: string;
     shipping_province: string;
     note?: string;
+    coupon_code?: string;
+    items?: Array<{ variant_id: number; quantity: number }>;
   }) {
     return request<Order>("/orders", { method: "POST", body: JSON.stringify(input) });
+  },
+  validateCoupon(code: string, subtotal: number) {
+    return request<{
+      code: string;
+      name?: string;
+      discount_amount: number;
+      discount_type: "PERCENTAGE" | "FIXED_AMOUNT";
+      discount_value: number;
+    }>("/coupons/validate", {
+      method: "POST",
+      body: JSON.stringify({ code, subtotal }),
+    });
+  },
+  lookupOrder(input: { order_code: string; phone: string }) {
+    return request<Order>("/orders/lookup", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  },
+  cancelPublicOrder(input: { order_code: string; phone: string }) {
+    return request<{ success: boolean; status: string }>("/orders/lookup/cancel", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
   },
   createPaypalOrder(orderId: number) {
     return request<{ paypal_order_id: string; usd_amount: string; approval_url?: string }>(`/orders/${orderId}/paypal/create`, {

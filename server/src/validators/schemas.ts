@@ -74,12 +74,21 @@ export const checkoutSchema = z.object({
   payment_method: z.enum(["COD", "BANK_TRANSFER"]),
   customer_name: z.string().trim().min(2).max(150),
   customer_phone: phoneSchema,
+  customer_email: z.string().trim().email().max(255).optional(),
   shipping_address_line: z.string().trim().min(2).max(255),
   shipping_ward: z.string().max(120).nullable().optional(),
   shipping_district: z.string().max(120).nullable().optional(),
   shipping_province: z.string().trim().min(1).max(120),
   note: z.string().max(1000).nullable().optional(),
   coupon_code: z.string().trim().max(64).optional(),
+  items: z.array(z.object({
+    variant_id: idSchema,
+    quantity: z.number().int().positive().max(1000),
+  })).optional(),
+});
+export const orderLookupSchema = z.object({
+  order_code: z.string().trim().min(3).max(64),
+  phone: z.string().trim().min(7).max(32),
 });
 export const reviewSchema = z.object({
   rating: z.number().int().min(1).max(5),

@@ -174,4 +174,55 @@ describe("API client", () => {
       message: "Không thể kết nối máy chủ. Vui lòng thử lại sau.",
     });
   });
+
+  it("validates coupons, looks up public orders and submits guest orders", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({
+        success: true,
+        data: { coupon_id: "1", code: "GIAM10", discount_amount: 15000, final_total: 135000 },
+      }))
+      .mockResolvedValueOnce(Response.json({
+        success: true,
+        data: { id: "10", order_code: "NOMABC123", status: "PENDING", can_cancel: true },
+      }))
+      .mockResolvedValueOnce(Response.json({
+        success: true,
+        data: { id: "10", order_code: "NOMABC123", status: "CANCELLED" },
+      }))
+      .mockResolvedValueOnce(Response.json({
+        success: true,
+        data: { id: 11, order_code: "NOMXYZ789", customer_phone: "0905123456" },
+      }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(api.validateCoupon("GIAM10", 150000)).resolves.toMatchObject({
+      code: "GIAM10",
+      discount_amount: 15000,
+    });
+    await expect(api.lookupOrder({ order_code: "NOMABC123", phone: "0905123456" })).resolves.toMatchObject({
+      order_code: "NOMABC123",
+      can_cancel: true,
+    });
+    await expect(api.cancelPublicOrder({ order_code: "NOMABC123", phone: "0905123456" })).resolves.toMatchObject({
+      status: "CANCELLED",
+    });
+    await expect(api.createOrder({
+      customer_name: "Khách lẻ",
+      customer_phone: "0905123456",
+      customer_email: "khach@gmail.com",
+      shipping_address_line: "123 Đường Nam Ô",
+      shipping_province: "Đà Nẵng",
+      payment_method: "BANK_TRANSFER",
+      coupon_code: "GIAM10",
+      items: [{ variant_id: 1, quantity: 2 }],
+    })).resolves.toMatchObject({
+      id: 11,
+      order_code: "NOMXYZ789",
+    });
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("http://localhost:3001/api/coupons/validate");
+    expect(fetchMock.mock.calls[1]?.[0]).toBe("http://localhost:3001/api/orders/lookup");
+    expect(fetchMock.mock.calls[2]?.[0]).toBe("http://localhost:3001/api/orders/lookup/cancel");
+    expect(fetchMock.mock.calls[3]?.[0]).toBe("http://localhost:3001/api/orders");
+  });
 });

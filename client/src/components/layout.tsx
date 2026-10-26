@@ -12,6 +12,7 @@ const navigation = [
   { label: "Sản phẩm", href: "/san-pham" },
   { label: "Câu chuyện", href: "/gioi-thieu" },
   { label: "Bài viết", href: "/blog" },
+  { label: "Tra cứu", href: "/tra-cuu-don-hang" },
   { label: "Liên hệ", href: "/lien-he" },
 ];
 
@@ -135,6 +136,7 @@ export function SiteFooter() {
           <h2>Mua sắm</h2>
           <Link href="/san-pham">Tất cả sản phẩm</Link>
           <Link href="/gio-hang">Giỏ hàng</Link>
+          <Link href="/tra-cuu-don-hang">Tra cứu đơn hàng</Link>
           <Link href="/tai-khoan/don-hang">Đơn hàng của tôi</Link>
         </div>
         <div>

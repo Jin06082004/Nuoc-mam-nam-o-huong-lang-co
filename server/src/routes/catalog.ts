@@ -1,15 +1,15 @@
 import { Router } from "express";
 import { z } from "zod";
 import { checkDatabase } from "../config/database";
-import { requireAuth, requireRole } from "../middleware/auth";
+import { optionalAuth, requireAuth, requireRole } from "../middleware/auth";
 import { asyncRoute, success } from "../utils/http";
 import { AppError } from "../utils/errors";
 import { archiveCategory, archiveProduct, blogPostBySlug, createReview, deleteOwnedReview, deleteProductImage, deactivateVariant, listBlogPosts, listCategories, listProductReviews, listProducts, productDetail, productIdForVariant, relatedProducts, saveCategory, saveImage, saveProduct, saveVariant, setPrimaryImage, updateInventory, updateOwnedReview, updateProductImage } from "../services/catalog";
-import { addCartItem, changeOrderStatus, clearCart, couponPreview, createOrder, getCart, getOrder, getOrderPayments, listOrders, removeCartItem, setCartItemQuantity } from "../services/commerce";
+import { addCartItem, cancelLookupOrder, changeOrderStatus, clearCart, couponPreview, createOrder, getCart, getOrder, getOrderPayments, listOrders, lookupOrder, removeCartItem, setCartItemQuantity } from "../services/commerce";
 import { getAdminDashboardStats, getAdminUserDetail, listAdminInventory, listAdminReviews, listAdminUsers, listContent, setReviewStatus, updateUserRoleAndStatus } from "../services/admin";
 import {
   cartItemSchema, categorySchema, checkoutSchema, couponValidationSchema, idParamsSchema, imageSchema,
-  imageUpdateSchema, inventorySchema, paginationSchema, userAdminSchema,
+  imageUpdateSchema, inventorySchema, orderLookupSchema, paginationSchema, userAdminSchema,
   productParamsSchema, productSchema, reviewAdminQuerySchema, reviewSchema, reviewStatusSchema, statusSchema,
   updateCartItemSchema, variantParamsSchema, variantSchema, videoSchema,
 } from "../validators/schemas";
@@ -99,9 +99,9 @@ catalogRouter.post("/cart/clear", requireAuth, asyncRoute(async (request, respon
   response.json({ success: true, data: { cleared: true } });
 }));
 
-catalogRouter.post("/orders", requireAuth, asyncRoute(async (request, response) => {
+catalogRouter.post("/orders", optionalAuth, asyncRoute(async (request, response) => {
   const input = checkoutSchema.parse(request.body);
-  const order = await createOrder(request.user!.id, input);
+  const order = await createOrder(request.user?.id ?? null, input);
   success(response, order, 201);
 }));
 catalogRouter.get("/orders", requireAuth, asyncRoute(async (request, response) => {
@@ -109,21 +109,35 @@ catalogRouter.get("/orders", requireAuth, asyncRoute(async (request, response) =
   const result = await listOrders(request.user!.id, false, query.page, query.limit);
   response.json({ success: true, data: result.data, meta: { ...query, total: result.total } });
 }));
-catalogRouter.get("/orders/:id", requireAuth, asyncRoute(async (request, response) => {
+catalogRouter.post("/orders/lookup", asyncRoute(async (request, response) => {
+  const input = orderLookupSchema.parse(request.body);
+  success(response, await lookupOrder(input.order_code, input.phone));
+}));
+catalogRouter.post("/orders/lookup/cancel", asyncRoute(async (request, response) => {
+  const input = orderLookupSchema.parse(request.body);
+  success(response, await cancelLookupOrder(input.order_code, input.phone));
+}));
+catalogRouter.get("/orders/:id", optionalAuth, asyncRoute(async (request, response) => {
   const { id } = idParamsSchema.parse(request.params);
-  success(response, await getOrder(request.user!.id, false, id));
+  const code = typeof request.query.code === "string" ? request.query.code : undefined;
+  const phone = typeof request.query.phone === "string" ? request.query.phone : undefined;
+  const order = await getOrder(request.user?.id ?? null, Boolean(request.user && request.user.role === "ADMIN"), id, { code, phone });
+  success(response, order);
 }));
 catalogRouter.patch("/orders/:id/cancel", requireAuth, asyncRoute(async (request, response) => {
   const { id } = idParamsSchema.parse(request.params);
   await changeOrderStatus(id, "CANCELLED", request.user!.id);
   success(response, { id, status: "CANCELLED" });
 }));
-catalogRouter.get("/orders/:id/payment", requireAuth, asyncRoute(async (request, response) => {
+catalogRouter.get("/orders/:id/payment", optionalAuth, asyncRoute(async (request, response) => {
   const { id } = idParamsSchema.parse(request.params);
-  success(response, await getOrderPayments(request.user!.id, id));
+  const code = typeof request.query.code === "string" ? request.query.code : undefined;
+  const phone = typeof request.query.phone === "string" ? request.query.phone : undefined;
+  await getOrder(request.user?.id ?? null, Boolean(request.user && request.user.role === "ADMIN"), id, { code, phone });
+  success(response, await getOrderPayments(request.user?.id ?? "", id));
 }));
 
-catalogRouter.post("/coupons/validate", requireAuth, asyncRoute(async (request, response) => {
+catalogRouter.post("/coupons/validate", optionalAuth, asyncRoute(async (request, response) => {
   const input = couponValidationSchema.parse(request.body);
   success(response, await couponPreview(input.code, input.subtotal));
 }));

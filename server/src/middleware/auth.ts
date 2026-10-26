@@ -51,6 +51,27 @@ export const requireAuth: RequestHandler = asyncRoute(async (request, _response,
   next();
 });
 
+export const optionalAuth: RequestHandler = asyncRoute(async (request, _response, next) => {
+  const token = request.cookies?.access_token as string | undefined;
+  if (!token) return next();
+
+  try {
+    const verified = jwt.verify(token, env.JWT_SECRET);
+    if (typeof verified !== "string") {
+      const claims = claimsSchema.safeParse(verified);
+      if (claims.success) {
+        const user = await getActiveUser(claims.data.sub);
+        if (user) {
+          request.user = user;
+        }
+      }
+    }
+  } catch {
+    // Guest fallback: ignore token errors
+  }
+  next();
+});
+
 export function requireRole(...roles: UserRole[]): RequestHandler {
   return (request, _response, next) => {
     if (!request.user) return next(new AppError("Authentication is required", 401));
@@ -58,3 +79,4 @@ export function requireRole(...roles: UserRole[]): RequestHandler {
     next();
   };
 }
+
