@@ -11,8 +11,18 @@ import type { BlogPost, Order } from "@/lib/types";
 import { useStore } from "./providers";
 import { Breadcrumb, Button, EmptyState, ErrorState, Loading, Price, ProductImage } from "./ui";
 
+export function isDanangProvince(province?: string | null): boolean {
+  if (!province) return false;
+  const normalized = province
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d");
+  return normalized.includes("da nang") || normalized.includes("danang");
+}
+
 export function CartPage() {
-  const { user, cart, cartLoading, refreshCart, notify } = useStore();
+  const { user, cart, cartLoading, refreshCart, notify, storeSettings } = useStore();
   const [error, setError] = useState("");
   const [busyItem, setBusyItem] = useState<number | null>(null);
   const [retryKey, setRetryKey] = useState(0);
@@ -175,6 +185,20 @@ export function CartPage() {
                       </div>
                     )}
                     <div className="summary-row"><span>Phí giao hàng</span><span>Tính khi thanh toán</span></div>
+                    {storeSettings && (
+                      <div style={{ fontSize: "0.82rem", backgroundColor: "var(--color-creamy, #faf5ef)", padding: "0.6rem 0.8rem", borderRadius: "8px", margin: "0.5rem 0", border: "1px dashed var(--color-wood, #854d0e)" }}>
+                        🚚 <strong>Chính sách giao hàng:</strong>
+                        <ul style={{ margin: "4px 0 0", paddingLeft: "1.2rem", listStyleType: "disc" }}>
+                          {storeSettings.shipping_fee_danang !== null && storeSettings.shipping_fee_danang !== undefined && (
+                            <li>Nội thành Đà Nẵng: <strong>{Number(storeSettings.shipping_fee_danang) === 0 ? "Miễn phí" : `${Number(storeSettings.shipping_fee_danang).toLocaleString("vi-VN")}₫`}</strong></li>
+                          )}
+                          <li>Khu vực / Tỉnh khác: <strong>{Number(storeSettings.shipping_fee ?? 0).toLocaleString("vi-VN")}₫</strong></li>
+                          {Boolean(storeSettings.free_shipping_enabled) && storeSettings.free_shipping_minimum && (
+                            <li>Miễn phí giao hàng từ <strong>{Number(storeSettings.free_shipping_minimum).toLocaleString("vi-VN")}₫</strong></li>
+                          )}
+                        </ul>
+                      </div>
+                    )}
                     <div className="summary-row summary-row--total"><strong>Tổng tạm tính</strong><Price value={finalTotal} /></div>
                     <p>Giá và tồn kho sẽ được máy chủ kiểm tra lại khi bạn đặt hàng.</p>
                     <Button href="/thanh-toan" className="button--full">Tiến hành thanh toán</Button>
@@ -286,9 +310,17 @@ export function CheckoutPage() {
   const total = cart?.items.reduce((sum, item) => sum + Number(item.line_total), 0) ?? 0;
   const discountAmount = appliedCoupon ? Math.min(Number(appliedCoupon.discount_amount), total) : 0;
   const subtotalAfterDiscount = Math.max(0, total - discountAmount);
-  const fee = storeSettings?.shipping_fee === null || storeSettings?.shipping_fee === undefined
+
+  const isLocalDanang = isDanangProvince(values.shipping_province);
+  const defaultFee = storeSettings?.shipping_fee === null || storeSettings?.shipping_fee === undefined
     ? null
     : Number(storeSettings.shipping_fee);
+  const danangFee = storeSettings?.shipping_fee_danang !== null && storeSettings?.shipping_fee_danang !== undefined
+    ? Number(storeSettings.shipping_fee_danang)
+    : defaultFee;
+  const applicableFee = isLocalDanang && danangFee !== null ? danangFee : defaultFee;
+  const fee = applicableFee;
+
   const freeShipping = Boolean(storeSettings?.free_shipping_enabled)
     && storeSettings?.free_shipping_minimum !== null
     && storeSettings?.free_shipping_minimum !== undefined
@@ -411,9 +443,49 @@ export function CheckoutPage() {
                       {errors.customer_email && <span className="field-error">{errors.customer_email}</span>}
                     </label>
                     <label htmlFor="shipping_province">Tỉnh / thành phố
-                      <input id="shipping_province" autoComplete="address-level1" value={values.shipping_province} onChange={(event) => field("shipping_province", event.target.value)} required />
+                      <input
+                        id="shipping_province"
+                        autoComplete="address-level1"
+                        list="vietnam-provinces"
+                        value={values.shipping_province}
+                        placeholder="Nhập hoặc chọn tỉnh/thành..."
+                        onChange={(event) => field("shipping_province", event.target.value)}
+                        required
+                      />
+                      <datalist id="vietnam-provinces">
+                        <option value="Đà Nẵng" />
+                        <option value="Quảng Nam" />
+                        <option value="Thừa Thiên Huế" />
+                        <option value="Hà Nội" />
+                        <option value="TP. Hồ Chí Minh" />
+                        <option value="Bình Định" />
+                        <option value="Khánh Hòa" />
+                        <option value="Nghệ An" />
+                        <option value="Hải Phòng" />
+                        <option value="Cần Thơ" />
+                      </datalist>
                       {errors.shipping_province && <span className="field-error">{errors.shipping_province}</span>}
                     </label>
+                    <div style={{ display: "flex", gap: "0.4rem", marginTop: "-0.4rem", marginBottom: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
+                      <span style={{ fontSize: "0.75rem", color: "var(--color-muted)" }}>Gợi ý nhanh:</span>
+                      {["Đà Nẵng", "Hà Nội", "TP. Hồ Chí Minh", "Quảng Nam"].map((prov) => (
+                        <button
+                          key={prov}
+                          type="button"
+                          className="button button--quiet"
+                          style={{
+                            fontSize: "0.75rem",
+                            padding: "0.15rem 0.5rem",
+                            borderRadius: "999px",
+                            border: values.shipping_province === prov ? "1px solid var(--color-wood)" : "1px solid #e2e8f0",
+                            backgroundColor: values.shipping_province === prov ? "var(--color-creamy, #faf5ef)" : "transparent",
+                          }}
+                          onClick={() => field("shipping_province", prov)}
+                        >
+                          {prov}
+                        </button>
+                      ))}
+                    </div>
                     <label htmlFor="shipping_district">Quận / huyện <span className="optional">(không bắt buộc)</span>
                       <input id="shipping_district" autoComplete="address-level2" value={values.shipping_district} onChange={(event) => field("shipping_district", event.target.value)} />
                     </label>
@@ -519,7 +591,7 @@ export function CheckoutPage() {
                                     Chủ tài khoản: <strong>{storeSettings.bank_account_holder || "NGUYEN NGUYEN PHUC"}</strong>
                                   </div>
                                   <div>
-                                    Số tiền: <strong><Price value={total + (estimatedShipping ?? 0)} /></strong>
+                                    Số tiền: <strong><Price value={finalTotal} /></strong>
                                   </div>
                                   <p style={{ margin: "4px 0 0", fontSize: "0.78rem", color: "var(--color-muted)" }}>
                                     💡 <em>Sau khi bấm <strong>Đặt hàng</strong>, mã QR gắn mã đơn của bạn sẽ hiển thị để hệ thống SePay tự động đối soát và kích hoạt đơn hàng trong 1-3 phút.</em>
@@ -574,8 +646,32 @@ export function CheckoutPage() {
                       <span>-{new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(discountAmount)}</span>
                     </div>
                   )}
-                  <div className="summary-row"><span>Phí giao hàng</span>{estimatedShipping === null ? <span>Chưa cấu hình</span> : <Price value={estimatedShipping} />}</div>
-                  {freeShipping && <p>Đơn hàng đạt mức miễn phí vận chuyển.</p>}
+                  <div className="summary-row">
+                    <span>Phí giao hàng</span>
+                    {estimatedShipping === null ? (
+                      <span>Chưa cấu hình</span>
+                    ) : estimatedShipping === 0 ? (
+                      <span style={{ color: "#16a34a", fontWeight: 600 }}>Miễn phí</span>
+                    ) : (
+                      <Price value={estimatedShipping} />
+                    )}
+                  </div>
+                  {isLocalDanang && danangFee !== null && !freeShipping && (
+                    <p style={{ fontSize: "0.8rem", color: "#2563eb", margin: "-0.25rem 0 0.5rem" }}>
+                      ⚡ Ưu đãi cước nội thành Đà Nẵng
+                    </p>
+                  )}
+                  {!isLocalDanang && values.shipping_province && !freeShipping && (
+                    <p style={{ fontSize: "0.8rem", color: "var(--color-muted)", margin: "-0.25rem 0 0.5rem" }}>
+                      📦 Cước tiêu chuẩn giao hàng toàn quốc
+                    </p>
+                  )}
+                  {freeShipping && <p style={{ fontSize: "0.82rem", color: "#16a34a", fontWeight: 600, margin: "-0.25rem 0 0.5rem" }}>🎉 Đơn hàng đủ điều kiện miễn phí vận chuyển!</p>}
+                  {!freeShipping && storeSettings?.free_shipping_enabled && storeSettings?.free_shipping_minimum && (
+                    <p style={{ fontSize: "0.8rem", color: "var(--color-muted)", margin: "0.25rem 0 0.5rem" }}>
+                      💡 Mua thêm {new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(Math.max(0, Number(storeSettings.free_shipping_minimum) - total))} để được miễn phí vận chuyển toàn quốc.
+                    </p>
+                  )}
                   <div className="summary-row summary-row--total"><strong>Tổng thanh toán</strong>{estimatedShipping === null ? <span>Chưa xác định</span> : <Price value={finalTotal} />}</div>
                   <p>Giá, khuyến mãi, phí vận chuyển và tồn kho được máy chủ xác thực khi đặt hàng.</p>
                 </aside>

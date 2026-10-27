@@ -83,6 +83,7 @@ async function requestPage<T>(path: string): Promise<PageResult<T>> {
 async function requestPayload<T>(path: string, init: RequestInit = {}): Promise<ApiSuccess<T> | undefined> {
   let response: Response;
   try {
+    const isFormData = typeof FormData !== "undefined" && init.body instanceof FormData;
     response = await fetch(`${API_BASE_URL}${path}`, {
       ...init,
       credentials: "include",
@@ -90,7 +91,7 @@ async function requestPayload<T>(path: string, init: RequestInit = {}): Promise<
         ? AbortSignal.any([init.signal, AbortSignal.timeout(API_TIMEOUT_MS)])
         : AbortSignal.timeout(API_TIMEOUT_MS),
       headers: {
-        ...(init.body ? { "Content-Type": "application/json" } : {}),
+        ...(init.body && !isFormData ? { "Content-Type": "application/json" } : {}),
         ...init.headers,
       },
       cache: "no-store",
@@ -345,6 +346,14 @@ export const api = {
     },
     setReviewStatus(id: number, status: string) {
       return request<{ id: number; status: string }>(`/admin/reviews/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) });
+    },
+    uploadImage(file: File) {
+      const formData = new FormData();
+      formData.append("file", file);
+      return request<{ url: string; filename: string; size: number }>("/admin/uploads", {
+        method: "POST",
+        body: formData,
+      });
     },
   },
 };

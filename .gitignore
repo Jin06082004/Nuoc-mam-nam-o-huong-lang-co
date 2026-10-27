@@ -30,6 +30,9 @@ coverage/
 *.tsbuildinfo
 .tsupgrader/
 
-# OS metadata
-.DS_Store
-Thumbs.db
+# Uploads
+uploads/
+*/uploads/
+!uploads/.gitkeep
+!*/uploads/.gitkeep
+

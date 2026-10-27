@@ -442,6 +442,7 @@ CREATE TABLE IF NOT EXISTS store_settings (
     contact_phone VARCHAR(32) NULL,
     contact_email VARCHAR(254) NULL,
     shipping_fee DECIMAL(12, 2) NULL,
+    shipping_fee_danang DECIMAL(12, 2) NULL,
     free_shipping_enabled BOOLEAN NOT NULL DEFAULT FALSE,
     free_shipping_minimum DECIMAL(12, 2) NULL,
     customer_cancellation_statuses JSON NOT NULL,

@@ -6,6 +6,16 @@ import { calculateDiscount, calculateOrderTotals } from "./money";
 import { readStoreSettings } from "./settings";
 import { sendOrderConfirmationEmail, sendAdminNewOrderNotification, type OrderEmailParams } from "./mail";
 
+export function isDanangProvince(province?: string | null): boolean {
+  if (!province) return false;
+  const normalized = province
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d");
+  return normalized.includes("da nang") || normalized.includes("danang");
+}
+
 async function connectionRows<T extends RowDataPacket>(
   connection: PoolConnection,
   sql: string,
@@ -182,7 +192,11 @@ export async function createOrder(userId: string | null | undefined, input: Chec
     if (input.payment_method === "BANK_TRANSFER" && !settings.bank_transfer_enabled) {
       throw new AppError("Phương thức chuyển khoản ngân hàng hiện đang tạm ngưng", 409);
     }
-    if (settings.shipping_fee === null) {
+    const isLocal = isDanangProvince(input.shipping_province);
+    const configuredFee = (isLocal && settings.shipping_fee_danang !== null)
+      ? settings.shipping_fee_danang
+      : settings.shipping_fee;
+    if (configuredFee === null) {
       throw new AppError("Phí vận chuyển chưa được cấu hình", 503);
     }
 
@@ -294,7 +308,7 @@ export async function createOrder(userId: string | null | undefined, input: Chec
       && settings.free_shipping_minimum !== null
       && subtotal >= settings.free_shipping_minimum
       ? 0
-      : settings.shipping_fee;
+      : configuredFee;
     const totals = calculateOrderTotals(subtotalItems, shippingFee, discount);
     const orderCode = createOrderCode();
     const [orderResult] = await connection.execute(

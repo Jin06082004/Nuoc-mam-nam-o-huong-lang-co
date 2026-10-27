@@ -144,6 +144,7 @@ export const storeSettingsSchema = z.object({
     z.string().trim().email().max(254).nullable(),
   ),
   shipping_fee: moneySchema.nullable(),
+  shipping_fee_danang: moneySchema.nullable().default(null),
   free_shipping_enabled: z.boolean(),
   free_shipping_minimum: moneySchema.nullable(),
   customer_cancellation_statuses: z.array(z.enum(["PENDING", "CONFIRMED"])).max(2)

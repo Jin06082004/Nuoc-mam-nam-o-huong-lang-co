@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { ApiError, api, apiBaseUrl, type AdminDashboardStats, type AdminRecord, type AdminUserDetail } from "@/lib/api";
 import type { AdminStoreSettings, Order, Product, ProductImage, ProductVariant, User } from "@/lib/types";
 import { EmptyState, Loading, Pagination } from "@/components/ui";
@@ -178,6 +178,10 @@ function statusTone(value: unknown): string {
 
 function FieldInput({ field, value, onChange }: { field: Field; value: string | boolean; onChange: (value: string | boolean) => void }) {
   const [failedPreviewUrl, setFailedPreviewUrl] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   if (field.type === "checkbox") {
     return <label className="admin-checkbox"><input type="checkbox" checked={Boolean(value)} onChange={(event) => onChange(event.target.checked)} />{field.label}</label>;
   }
@@ -194,7 +198,8 @@ function FieldInput({ field, value, onChange }: { field: Field; value: string | 
     step: field.step,
     onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => onChange(event.target.value),
   };
-  const imageSource = (field.name === "image_url" || field.name === "thumbnail_url") && field.type === "url" && typeof value === "string"
+  const isImageField = (field.name === "image_url" || field.name === "thumbnail_url" || field.name === "logo_url") && field.type === "url";
+  const imageSource = isImageField && typeof value === "string"
     ? value.trim()
     : "";
   const previewUrl = imageSource.startsWith("/uploads/")
@@ -207,9 +212,59 @@ function FieldInput({ field, value, onChange }: { field: Field; value: string | 
   } catch {
     validPreviewUrl = "";
   }
-  return <label className="admin-form-field"><span>{field.label}</span>
+
+  async function handleFileSelect(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setUploadError("");
+    setUploading(true);
+    try {
+      const res = await api.admin.uploadImage(file);
+      onChange(res.url);
+      setFailedPreviewUrl("");
+    } catch (cause) {
+      setUploadError(cause instanceof Error ? cause.message : "Tải ảnh thất bại.");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  return <div className="admin-form-field">
+    <label><span>{field.label}</span></label>
     {field.type === "textarea" ? <textarea {...props} rows={4} /> : <input {...props} type={type} />}
-    {validPreviewUrl && <span className="admin-image-preview">
+    {isImageField && (
+      <div className="admin-image-upload-controls" style={{ marginTop: "0.5rem", display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.75rem" }}>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+          style={{ display: "none" }}
+          onChange={(event) => void handleFileSelect(event)}
+        />
+        <button
+          type="button"
+          className="admin-button admin-button--secondary"
+          style={{ fontSize: "0.85rem", padding: "0.35rem 0.75rem", cursor: "pointer" }}
+          disabled={uploading}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          {uploading ? "⏳ Đang tải ảnh lên…" : "📁 Tải ảnh từ máy tính"}
+        </button>
+        {typeof value === "string" && value ? (
+          <button
+            type="button"
+            className="admin-link-button admin-link-button--danger"
+            style={{ fontSize: "0.85rem" }}
+            onClick={() => onChange("")}
+          >
+            ✕ Xóa ảnh
+          </button>
+        ) : null}
+        {uploadError && <span style={{ color: "#ef4444", fontSize: "0.85rem" }}>{uploadError}</span>}
+      </div>
+    )}
+    {validPreviewUrl && <span className="admin-image-preview" style={{ marginTop: "0.5rem", display: "block" }}>
       {failedPreviewUrl === validPreviewUrl ? "Không tải được ảnh xem trước." : <Image
         src={validPreviewUrl}
         alt=""
@@ -217,9 +272,10 @@ function FieldInput({ field, value, onChange }: { field: Field; value: string | 
         height={180}
         unoptimized
         onError={() => setFailedPreviewUrl(validPreviewUrl)}
+        style={{ objectFit: "contain", borderRadius: "6px", border: "1px solid #e2e8f0" }}
       />}
     </span>}
-  </label>;
+  </div>;
 }
 
 function ResourceForm({
@@ -271,7 +327,7 @@ function ResourceForm({
           return;
         }
         if (field.type === "url" && text) {
-          const imagePath = (field.name === "image_url" || field.name === "thumbnail_url") && isSafeUploadPath(text);
+          const imagePath = (field.name === "image_url" || field.name === "thumbnail_url" || field.name === "logo_url") && isSafeUploadPath(text);
           if (!imagePath) {
             try {
               const url = new URL(text);
@@ -1260,8 +1316,28 @@ function AdminSettingsPage() {
     setSettings((current) => current ? { ...current, [key]: value } : current);
   }
 
-  function money(key: "shipping_fee" | "free_shipping_minimum", value: string) {
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [logoUploadError, setLogoUploadError] = useState("");
+
+  function money(key: "shipping_fee" | "shipping_fee_danang" | "free_shipping_minimum", value: string) {
     text(key, value === "" ? null : Number(value));
+  }
+
+  async function handleLogoUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setLogoUploadError("");
+    setLogoUploading(true);
+    try {
+      const res = await api.admin.uploadImage(file);
+      text("logo_url", res.url);
+    } catch (cause) {
+      setLogoUploadError(cause instanceof Error ? cause.message : "Tải logo thất bại.");
+    } finally {
+      setLogoUploading(false);
+      if (logoInputRef.current) logoInputRef.current.value = "";
+    }
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -1298,7 +1374,17 @@ function AdminSettingsPage() {
         <div className="admin-form__fields">
           <label className="admin-form-field"><span>Tên cửa hàng</span><input required value={settings.store_name} onChange={(event) => text("store_name", event.target.value)} /></label>
           <label className="admin-form-field"><span>Mô tả ngắn</span><textarea rows={3} value={settings.store_description ?? ""} onChange={(event) => text("store_description", event.target.value || null)} /></label>
-          <label className="admin-form-field"><span>Logo URL (không bắt buộc)</span><input type="url" value={settings.logo_url ?? ""} onChange={(event) => text("logo_url", event.target.value || null)} /></label>
+          <div className="admin-form-field">
+            <label><span>Logo URL (không bắt buộc)</span></label>
+            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+              <input type="url" style={{ flex: 1 }} value={settings.logo_url ?? ""} onChange={(event) => text("logo_url", event.target.value || null)} />
+              <input ref={logoInputRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" style={{ display: "none" }} onChange={(event) => void handleLogoUpload(event)} />
+              <button type="button" className="admin-button admin-button--secondary" style={{ fontSize: "0.85rem", whiteSpace: "nowrap" }} disabled={logoUploading} onClick={() => logoInputRef.current?.click()}>
+                {logoUploading ? "⏳ Đang tải…" : "📁 Tải logo"}
+              </button>
+            </div>
+            {logoUploadError && <p style={{ color: "#ef4444", fontSize: "0.85rem", margin: "0.25rem 0 0" }}>{logoUploadError}</p>}
+          </div>
           <label className="admin-form-field"><span>Địa chỉ</span><input value={settings.store_address ?? ""} onChange={(event) => text("store_address", event.target.value || null)} /></label>
           <label className="admin-form-field"><span>Số điện thoại</span><input type="tel" value={settings.contact_phone ?? ""} onChange={(event) => text("contact_phone", event.target.value || null)} /></label>
           <label className="admin-form-field"><span>Email liên hệ</span><input type="email" value={settings.contact_email ?? ""} onChange={(event) => text("contact_email", event.target.value || null)} /></label>
@@ -1307,7 +1393,8 @@ function AdminSettingsPage() {
       <fieldset className="admin-detail-card">
         <legend>Giao hàng và đơn hàng</legend>
         <div className="admin-form__fields">
-          <label className="admin-form-field"><span>Phí vận chuyển mặc định (₫)</span><input type="number" min="0" step="1000" value={settings.shipping_fee ?? ""} onChange={(event) => money("shipping_fee", event.target.value)} /></label>
+          <label className="admin-form-field"><span>Phí vận chuyển ngoại tỉnh / toàn quốc (₫)</span><input type="number" min="0" step="1000" value={settings.shipping_fee ?? ""} onChange={(event) => money("shipping_fee", event.target.value)} /></label>
+          <label className="admin-form-field"><span>Phí vận chuyển nội thành Đà Nẵng (₫)</span><input type="number" min="0" step="1000" placeholder="Để trống sẽ áp dụng phí toàn quốc" value={settings.shipping_fee_danang ?? ""} onChange={(event) => money("shipping_fee_danang", event.target.value)} /></label>
           <label className="admin-form-field"><span>Mức đơn hàng miễn phí vận chuyển (₫)</span><input type="number" min="0" step="1000" disabled={!settings.free_shipping_enabled} value={settings.free_shipping_minimum ?? ""} onChange={(event) => money("free_shipping_minimum", event.target.value)} /></label>
           <label className="admin-checkbox"><input type="checkbox" checked={settings.free_shipping_enabled} onChange={(event) => text("free_shipping_enabled", event.target.checked)} /> Bật miễn phí vận chuyển theo mức đơn hàng</label>
           <div className="admin-settings-options">

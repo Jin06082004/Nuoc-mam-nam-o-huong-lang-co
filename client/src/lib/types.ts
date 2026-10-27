@@ -26,6 +26,7 @@ export interface StoreSettings {
   contact_phone: string | null;
   contact_email: string | null;
   shipping_fee: string | number | null;
+  shipping_fee_danang: string | number | null;
   free_shipping_enabled: boolean;
   free_shipping_minimum: string | number | null;
   cod_enabled: boolean;

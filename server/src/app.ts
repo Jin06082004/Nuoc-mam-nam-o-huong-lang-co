@@ -12,9 +12,14 @@ import { settingsRouter } from "./routes/settings";
 import { errorHandler, notFound } from "./middleware/errors";
 import { AppError } from "./utils/errors";
 
+import { uploadsDir } from "./middleware/upload";
+
 export const app = express();
 app.disable("x-powered-by");
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+}));
+app.use("/uploads", express.static(uploadsDir));
 const allowedOrigins = new Set([
   env.FRONTEND_URL,
   "http://localhost:3000",

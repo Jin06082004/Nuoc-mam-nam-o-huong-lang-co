@@ -254,4 +254,31 @@ describe("API client", () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe("http://localhost:3001/api/auth/forgot-password");
     expect(fetchMock.mock.calls[1]?.[0]).toBe("http://localhost:3001/api/auth/reset-password");
   });
+
+  it("uploads an image without overriding multipart FormData Content-Type header", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      Response.json({
+        success: true,
+        data: { url: "/uploads/sample-123.jpg", filename: "sample-123.jpg", size: 1024 },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const dummyFile = new File(["dummy content"], "sample.jpg", { type: "image/jpeg" });
+    const result = await api.admin.uploadImage(dummyFile);
+
+    expect(result).toEqual({
+      url: "/uploads/sample-123.jpg",
+      filename: "sample-123.jpg",
+      size: 1024,
+    });
+
+    const [calledUrl, calledInit] = fetchMock.mock.calls[0] ?? [];
+    expect(calledUrl).toBe("http://localhost:3001/api/admin/uploads");
+    expect(calledInit?.method).toBe("POST");
+    expect(calledInit?.body).toBeInstanceOf(FormData);
+    // Crucial: "Content-Type" must NOT be hardcoded to "application/json" for FormData
+    expect(calledInit?.headers?.["Content-Type"]).toBeUndefined();
+  });
 });
+

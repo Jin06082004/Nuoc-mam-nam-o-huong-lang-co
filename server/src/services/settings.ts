@@ -17,6 +17,7 @@ export interface StoreSettings {
   contact_phone: string | null;
   contact_email: string | null;
   shipping_fee: number | null;
+  shipping_fee_danang: number | null;
   free_shipping_enabled: boolean;
   free_shipping_minimum: number | null;
   customer_cancellation_statuses: CancellationStatus[];
@@ -36,7 +37,7 @@ interface StoreSettingsRow extends RowDataPacket, Omit<StoreSettings, "customer_
 }
 
 const settingsSelect = `SELECT store_name, store_description, logo_url, store_address, contact_phone, contact_email,
-  shipping_fee, free_shipping_enabled, free_shipping_minimum, customer_cancellation_statuses, cod_enabled,
+  shipping_fee, shipping_fee_danang, free_shipping_enabled, free_shipping_minimum, customer_cancellation_statuses, cod_enabled,
   bank_transfer_enabled, bank_name, bank_account_number, bank_account_holder, bank_branch,
   facebook_url, tiktok_url, youtube_url
   FROM store_settings WHERE id=1 LIMIT 1`;
@@ -62,6 +63,7 @@ function mapSettings(row: StoreSettingsRow): StoreSettings {
     contact_phone: row.contact_phone,
     contact_email: row.contact_email,
     shipping_fee: numericOrNull(row.shipping_fee) ?? env.SHIPPING_FEE ?? null,
+    shipping_fee_danang: numericOrNull(row.shipping_fee_danang),
     free_shipping_enabled: Boolean(row.free_shipping_enabled),
     free_shipping_minimum: numericOrNull(row.free_shipping_minimum),
     customer_cancellation_statuses: cancellationStatuses(row.customer_cancellation_statuses),
@@ -101,7 +103,7 @@ export async function readPublicStoreSettings(): Promise<Omit<StoreSettings, "cu
 export async function updateStoreSettings(input: StoreSettingsInput): Promise<void> {
   const fields: Array<keyof StoreSettingsInput> = [
     "store_name", "store_description", "logo_url", "store_address", "contact_phone", "contact_email",
-    "shipping_fee", "free_shipping_enabled", "free_shipping_minimum", "customer_cancellation_statuses",
+    "shipping_fee", "shipping_fee_danang", "free_shipping_enabled", "free_shipping_minimum", "customer_cancellation_statuses",
     "cod_enabled", "bank_transfer_enabled", "bank_name", "bank_account_number", "bank_account_holder",
     "bank_branch", "facebook_url", "tiktok_url", "youtube_url",
   ];
