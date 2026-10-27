@@ -1569,20 +1569,20 @@ export function ContactPage() {
           ) : (
             <form onSubmit={handleSubmit} style={{ display: "grid", gap: "1rem" }}>
               <div>
-                <label htmlFor="contact-name" style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>Họ và tên *</label>
-                <input id="contact-name" className="header-search" style={{ width: "100%", padding: "10px" }} value={name} onChange={(e) => setName(e.target.value)} placeholder="Ví dụ: Nguyễn Văn A" required />
+                <label htmlFor="contact-name" style={{ display: "block", marginBottom: 6, fontWeight: 600, fontSize: "0.86rem" }}>Họ và tên *</label>
+                <input id="contact-name" className="form-control" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ví dụ: Nguyễn Văn A" required />
               </div>
               <div>
-                <label htmlFor="contact-phone" style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>Số điện thoại *</label>
-                <input id="contact-phone" type="tel" className="header-search" style={{ width: "100%", padding: "10px" }} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="09xx xxx xxx" required />
+                <label htmlFor="contact-phone" style={{ display: "block", marginBottom: 6, fontWeight: 600, fontSize: "0.86rem" }}>Số điện thoại *</label>
+                <input id="contact-phone" type="tel" className="form-control" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="09xx xxx xxx" required />
               </div>
               <div>
-                <label htmlFor="contact-email" style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>Email (nếu có)</label>
-                <input id="contact-email" type="email" className="header-search" style={{ width: "100%", padding: "10px" }} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@example.com" />
+                <label htmlFor="contact-email" style={{ display: "block", marginBottom: 6, fontWeight: 600, fontSize: "0.86rem" }}>Email (nếu có)</label>
+                <input id="contact-email" type="email" className="form-control" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@example.com" />
               </div>
               <div>
-                <label htmlFor="contact-msg" style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>Nội dung cần hỗ trợ / Lịch đoàn *</label>
-                <textarea id="contact-msg" rows={4} className="header-search" style={{ width: "100%", padding: "10px" }} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Cần tư vấn đặt sỉ, hộp quà biếu hoặc đặt lịch đoàn tham quan..." required />
+                <label htmlFor="contact-msg" style={{ display: "block", marginBottom: 6, fontWeight: 600, fontSize: "0.86rem" }}>Nội dung cần hỗ trợ / Lịch đoàn *</label>
+                <textarea id="contact-msg" rows={4} className="form-control form-textarea" value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Cần tư vấn đặt sỉ, hộp quà biếu hoặc đặt lịch đoàn tham quan..." required />
               </div>
               <Button type="submit" className="button--full">Gửi tin nhắn ngay</Button>
             </form>
@@ -1758,7 +1758,7 @@ export function OrderLookupPage() {
   return (
     <main className="page-shell container">
       <Breadcrumb items={[{ label: "Trang chủ", href: "/" }, { label: "Tra cứu đơn hàng" }]} />
-      <section className="page-heading">
+      <section className="page-heading page-heading--center">
         <p className="eyebrow">Hành trình đơn hàng</p>
         <h1>Tra cứu đơn hàng</h1>
         <p>Kiểm tra thông tin chi tiết, tiến độ giao hàng và quét mã thanh toán VietQR.</p>
