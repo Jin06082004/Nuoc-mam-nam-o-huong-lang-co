@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import mysql, { type ResultSetHeader, type RowDataPacket } from "mysql2/promise";
 import { env } from "./env";
+import { seedVerifiedData } from "../scripts/seed-verified-data";
 
 export type SqlValue = string | number | bigint | boolean | Date | null | Buffer | Uint8Array;
 export const pool = mysql.createPool({
@@ -39,7 +40,7 @@ export async function execute(
 export async function checkDatabase(): Promise<void> {
   await pool.query("SELECT 1");
   try {
-    const [tables] = await pool.query<RowDataPacket[]>("SHOW TABLES LIKE 'store_settings'");
+    const [tables] = await pool.query<RowDataPacket[]>("SHOW TABLES LIKE 'products'");
     if (tables.length === 0) {
       console.info("Schema not detected in target database; applying initial schema...");
       const schemaPaths = [
@@ -56,11 +57,22 @@ export async function checkDatabase(): Promise<void> {
       }
       if (sql) {
         const sanitized = sql
-          .replace(/CREATE DATABASE[^\n;]+;/gi, "")
-          .replace(/USE [^\n;]+;/gi, "");
+          .replace(/CREATE DATABASE[\s\S]*?;/gi, "")
+          .replace(/USE [\s\S]*?;/gi, "");
         await pool.query(sanitized);
         console.info("Database schema applied successfully.");
       }
+    }
+
+    try {
+      const [prodRows] = await pool.query<RowDataPacket[]>("SELECT COUNT(*) AS total FROM products");
+      const total = Number((prodRows[0] as { total?: number })?.total || 0);
+      if (total === 0) {
+        console.info("Products table is empty. Running seedVerifiedData...");
+        await seedVerifiedData(pool);
+      }
+    } catch (seedErr) {
+      console.warn("Seed verified data check warning:", seedErr);
     }
   } catch (err) {
     console.warn("Schema initialization check warning:", err);

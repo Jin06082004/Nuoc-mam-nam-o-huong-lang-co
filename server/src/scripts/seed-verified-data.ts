@@ -1,23 +1,22 @@
 import dotenv from "dotenv";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
-import mysql from "mysql2/promise";
+import mysql, { type Pool, type PoolConnection } from "mysql2/promise";
+import { env } from "../config/env";
 
 dotenv.config();
 
-async function seedVerifiedData(): Promise<void> {
-  const required = ["DATABASE_HOST", "DATABASE_NAME", "DATABASE_USER"] as const;
-  if (required.some((key) => !process.env[key]) || process.env.DATABASE_PASSWORD === undefined) {
-    throw new Error("Database connection configuration is incomplete");
-  }
-
-  const connection = await mysql.createConnection({
-    host: process.env.DATABASE_HOST,
-    port: Number(process.env.DATABASE_PORT || 3306),
-    database: process.env.DATABASE_NAME,
-    user: process.env.DATABASE_USER,
-    password: process.env.DATABASE_PASSWORD,
-    charset: "utf8mb4",
-  });
+export async function seedVerifiedData(targetPool?: Pool): Promise<void> {
+  const isCustomPool = Boolean(targetPool);
+  const connection: PoolConnection | mysql.Connection = targetPool
+    ? await targetPool.getConnection()
+    : await mysql.createConnection({
+        host: env.DATABASE_HOST,
+        port: env.DATABASE_PORT,
+        database: env.DATABASE_NAME,
+        user: env.DATABASE_USER,
+        password: env.DATABASE_PASSWORD,
+        charset: "utf8mb4",
+      });
 
   try {
     await connection.beginTransaction();
@@ -478,12 +477,18 @@ Nước mắm Nam Ô Hương Làng Cổ không chỉ là gia vị cho bữa cơm
     await connection.rollback();
     throw error;
   } finally {
-    await connection.end();
+    if (isCustomPool) {
+      (connection as PoolConnection).release();
+    } else {
+      await (connection as mysql.Connection).end();
+    }
   }
 }
 
-seedVerifiedData().catch((error: unknown) => {
-  const message = error instanceof Error ? error.message : "Seed verified data failed";
-  console.error("Lỗi:", message);
-  process.exitCode = 1;
-});
+if (process.argv[1]?.endsWith("seed-verified-data.ts") || process.argv[1]?.endsWith("seed-verified-data.js")) {
+  seedVerifiedData().catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : "Seed verified data failed";
+    console.error("Lỗi:", message);
+    process.exitCode = 1;
+  });
+}
