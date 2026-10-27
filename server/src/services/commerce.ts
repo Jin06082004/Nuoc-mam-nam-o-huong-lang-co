@@ -4,7 +4,7 @@ import { pool, rows, type SqlValue } from "../config/database";
 import { AppError } from "../utils/errors";
 import { calculateDiscount, calculateOrderTotals } from "./money";
 import { readStoreSettings } from "./settings";
-import { sendOrderConfirmationEmail } from "./mail";
+import { sendOrderConfirmationEmail, sendAdminNewOrderNotification, type OrderEmailParams } from "./mail";
 
 async function connectionRows<T extends RowDataPacket>(
   connection: PoolConnection,
@@ -352,39 +352,44 @@ export async function createOrder(userId: string | null | undefined, input: Chec
           const userRows = await rows<RowDataPacket>("SELECT email FROM users WHERE id=?", [userId]);
           customerEmail = (userRows[0] as { email?: string } | undefined)?.email;
         }
-        if (customerEmail) {
-          const shippingAddress = [
-            input.shipping_address_line,
-            input.shipping_ward,
-            input.shipping_district,
-            input.shipping_province,
-          ].filter(Boolean).join(", ");
+        const shippingAddress = [
+          input.shipping_address_line,
+          input.shipping_ward,
+          input.shipping_district,
+          input.shipping_province,
+        ].filter(Boolean).join(", ");
 
-          await sendOrderConfirmationEmail({
-            orderCode,
-            orderId,
-            customerName: input.customer_name,
-            customerEmail,
-            customerPhone: input.customer_phone,
-            shippingAddress,
-            paymentMethod: input.payment_method,
-            items: items.map((i) => ({
-              productName: i.product_name,
-              variantName: i.variant_name,
-              quantity: i.quantity,
-              price: i.price,
-              lineTotal: Math.round(Number(i.price) * i.quantity * 100) / 100,
-            })),
-            subtotal: totals.subtotal,
-            shippingFee: totals.shippingFee,
-            discountAmount: totals.discount,
-            totalAmount: totals.total,
-            note: input.note,
-            createdAt: new Date().toLocaleString("vi-VN"),
-          });
+        const emailParams: OrderEmailParams = {
+          orderCode,
+          orderId,
+          customerName: input.customer_name,
+          customerEmail: customerEmail || "",
+          customerPhone: input.customer_phone,
+          shippingAddress,
+          paymentMethod: input.payment_method,
+          items: items.map((i) => ({
+            productName: i.product_name,
+            variantName: i.variant_name,
+            quantity: i.quantity,
+            price: i.price,
+            lineTotal: Math.round(Number(i.price) * i.quantity * 100) / 100,
+          })),
+          subtotal: totals.subtotal,
+          shippingFee: totals.shippingFee,
+          discountAmount: totals.discount,
+          totalAmount: totals.total,
+          note: input.note,
+          createdAt: new Date().toLocaleString("vi-VN"),
+        };
+
+        if (customerEmail) {
+          await sendOrderConfirmationEmail(emailParams);
         }
+
+        // Always notify store owner/admin of new order
+        await sendAdminNewOrderNotification(emailParams);
       } catch (err) {
-        console.error("Failed to trigger order confirmation email:", err);
+        console.error("Failed to trigger order confirmation or admin email:", err);
       }
     })();
 

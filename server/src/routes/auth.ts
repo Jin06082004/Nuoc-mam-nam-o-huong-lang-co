@@ -2,8 +2,8 @@ import { Router } from "express";
 import { env } from "../config/env";
 import { requireAuth, issueToken } from "../middleware/auth";
 import { asyncRoute, success } from "../utils/http";
-import { loginSchema, registerSchema } from "../validators/schemas";
-import { authenticateUser, registerCustomer } from "../services/auth";
+import { loginSchema, registerSchema, forgotPasswordSchema, resetPasswordSchema } from "../validators/schemas";
+import { authenticateUser, registerCustomer, requestPasswordReset, resetPassword } from "../services/auth";
 
 export const authRouter = Router();
 const cookieOptions = {
@@ -28,6 +28,18 @@ authRouter.post("/login", asyncRoute(async (request, response) => {
   success(response, { user });
 }));
 
+authRouter.post("/forgot-password", asyncRoute(async (request, response) => {
+  const input = forgotPasswordSchema.parse(request.body);
+  const result = await requestPasswordReset(input.email);
+  success(response, result);
+}));
+
+authRouter.post("/reset-password", asyncRoute(async (request, response) => {
+  const input = resetPasswordSchema.parse(request.body);
+  const result = await resetPassword(input.email, input.otp, input.new_password);
+  success(response, result);
+}));
+
 authRouter.post("/logout", (_request, response) => {
   response.clearCookie("access_token", { ...cookieOptions, maxAge: undefined });
   response.json({ success: true, data: { logged_out: true } });
@@ -36,3 +48,4 @@ authRouter.post("/logout", (_request, response) => {
 authRouter.get("/me", requireAuth, (request, response) => {
   success(response, { user: request.user });
 });
+

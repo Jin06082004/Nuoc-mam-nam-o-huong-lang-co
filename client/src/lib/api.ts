@@ -184,6 +184,18 @@ export const api = {
   me() {
     return request<{ user: User }>("/auth/me");
   },
+  forgotPassword(email: string) {
+    return request<{ success: boolean; message: string }>("/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  },
+  resetPassword(input: { email: string; otp: string; new_password: string }) {
+    return request<{ success: boolean; message: string }>("/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  },
   orders() {
     return requestPage<Order>("/orders?limit=100");
   },

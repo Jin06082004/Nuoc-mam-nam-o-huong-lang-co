@@ -461,3 +461,13 @@ CREATE TABLE IF NOT EXISTS store_settings (
 INSERT INTO store_settings (id, store_name, customer_cancellation_statuses)
 VALUES (1, 'Nước mắm Nam Ô Hương Làng Cổ', JSON_ARRAY('PENDING', 'CONFIRMED'))
 ON DUPLICATE KEY UPDATE id = VALUES(id);
+
+CREATE TABLE IF NOT EXISTS password_resets (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(254) NOT NULL,
+    otp_code VARCHAR(10) NOT NULL,
+    expires_at DATETIME NOT NULL,
+    used_at DATETIME NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_password_resets_email (email, expires_at)
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

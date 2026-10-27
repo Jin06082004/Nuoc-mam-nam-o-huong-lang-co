@@ -43,7 +43,7 @@ export async function processSepayWebhook(payload: SepayWebhookPayload, authHead
 
   // Find order by matching order_code in transactionContent
   const orderList = await rows<RowDataPacket>(
-    "SELECT id, order_code, total_amount, status FROM orders WHERE status IN ('PENDING', 'CONFIRMED') ORDER BY id DESC LIMIT 100",
+    "SELECT id, order_code, customer_name, total_amount, status FROM orders WHERE status IN ('PENDING', 'CONFIRMED') ORDER BY id DESC LIMIT 100",
   );
 
   const matchedOrder = orderList.find((ord) => {
@@ -76,6 +76,18 @@ export async function processSepayWebhook(payload: SepayWebhookPayload, authHead
     );
     await connection.commit();
     console.info(`[SEPAY] Order #${matchedOrder.order_code} successfully verified and paid via SePay transaction #${payload.id}`);
+
+    // Notify admin/owner via email of confirmed payment
+    const { sendAdminPaymentSuccessNotification } = await import("./mail");
+    void sendAdminPaymentSuccessNotification({
+      orderCode: matchedOrder.order_code,
+      orderId: matchedOrder.id,
+      customerName: matchedOrder.customer_name || "Khách hàng",
+      totalAmount: matchedOrder.total_amount,
+      paymentMethod: "BANK_TRANSFER",
+      transactionId: txCode || payload.id,
+    }).catch((err) => console.error("[SEPAY] Error sending admin payment email:", err));
+
     return { success: true, message: "Order payment confirmed", order_id: matchedOrder.id };
   } catch (error) {
     await connection.rollback();
@@ -162,7 +174,7 @@ export async function createPaypalOrder(orderId: number): Promise<{ paypal_order
 }
 
 export async function capturePaypalOrder(orderId: number, paypalOrderId: string): Promise<{ success: boolean; status: string }> {
-  const orderList = await rows<RowDataPacket>("SELECT id, order_code, total_amount FROM orders WHERE id = ?", [orderId]);
+  const orderList = await rows<RowDataPacket>("SELECT id, order_code, customer_name, total_amount FROM orders WHERE id = ?", [orderId]);
   const order = orderList[0];
   if (!order) throw new AppError("Order not found", 404);
 
@@ -190,6 +202,18 @@ export async function capturePaypalOrder(orderId: number, paypalOrderId: string)
       await connection.execute("UPDATE orders SET status = 'CONFIRMED', updated_at = CURRENT_TIMESTAMP WHERE id = ?", [orderId]);
       await connection.execute("UPDATE payments SET payment_status = 'PAID', transaction_code = ?, paid_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE order_id = ?", [paypalOrderId, orderId]);
       await connection.commit();
+
+      // Notify admin/owner via email of confirmed payment
+      const { sendAdminPaymentSuccessNotification } = await import("./mail");
+      void sendAdminPaymentSuccessNotification({
+        orderCode: order.order_code,
+        orderId: order.id,
+        customerName: order.customer_name || "Khách hàng",
+        totalAmount: order.total_amount,
+        paymentMethod: "PAYPAL",
+        transactionId: paypalOrderId,
+      }).catch((err) => console.error("[PAYPAL] Error sending admin payment email:", err));
+
       return { success: true, status: "COMPLETED" };
     } catch (err) {
       await connection.rollback();

@@ -628,6 +628,16 @@ function AdminResourceList({ resource, page, onPage, reload, onReload }: {
       {resource === "reviews" && <label className="admin-filter"><span>Trạng thái đánh giá</span><select value={reviewStatus} onChange={(event) => { setReviewStatus(event.target.value); onPage(1); }}>
         <option value="">Tất cả trạng thái</option>{["PENDING", "APPROVED", "REJECTED", "HIDDEN"].map((value) => <option key={value}>{value}</option>)}
       </select></label>}
+      {resource === "orders" && (
+        <button
+          type="button"
+          className="admin-button"
+          onClick={() => exportOrdersCsv(locallyFiltered)}
+          title="Xuất dữ liệu đơn hàng ra file Excel (CSV UTF-8)"
+        >
+          📥 Xuất Excel (CSV)
+        </button>
+      )}
       {canCreate && <button className="admin-button admin-button--primary" onClick={() => setEditor({})}>{labels[resource] ?? `Tạo ${resourceLabels[resource].toLocaleLowerCase()}`}</button>}
     </div>
     {supportsSearch && <p className="admin-help">Tìm kiếm được gửi tới API. Các bộ lọc khác chỉ áp dụng cho dữ liệu của trang đang xem.</p>}
@@ -768,6 +778,350 @@ function ProductDetail({ id, onBack, onRefresh }: { id: number; onBack: () => vo
   </section>;
 }
 
+function exportOrdersCsv(records: AdminRecord[]) {
+  if (!records.length) {
+    alert("Không có đơn hàng nào để xuất.");
+    return;
+  }
+  const headers = [
+    "Mã đơn hàng",
+    "Ngày tạo",
+    "Khách hàng",
+    "Số điện thoại",
+    "Tổng tiền (VNĐ)",
+    "Trạng thái đơn",
+    "Phương thức thanh toán",
+    "Trạng thái thanh toán",
+  ];
+
+  const rows = records.map((r) => [
+    `"${String(r.order_code ?? "").replace(/"/g, '""')}"`,
+    `"${String(r.created_at ?? "").replace(/"/g, '""')}"`,
+    `"${String(r.customer_name ?? "").replace(/"/g, '""')}"`,
+    `"${String(r.customer_phone ?? "").replace(/"/g, '""')}"`,
+    `"${Number(r.total_amount ?? 0)}"`,
+    `"${String(r.status ?? "").replace(/"/g, '""')}"`,
+    `"${String(r.payment_method ?? "").replace(/"/g, '""')}"`,
+    `"${String(r.payment_status ?? "").replace(/"/g, '""')}"`,
+  ]);
+
+  // Prepend UTF-8 BOM so Microsoft Excel renders Vietnamese characters correctly
+  const csvContent = "\uFEFF" + [headers.join(","), ...rows.map((r) => r.join(","))].join("\r\n");
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  const dateStr = new Date().toISOString().slice(0, 10);
+  link.setAttribute("download", `Don-hang-Huong-Lang-Co-${dateStr}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function ShippingInvoiceModal({ order, onClose }: { order: Order; onClose: () => void }) {
+  const isCod = order.payments?.[0]?.payment_method === "COD";
+  const isPaid = order.payments?.[0]?.payment_status === "PAID" || order.status === "CONFIRMED";
+  const amountToCollect = isCod && !isPaid ? Number(order.total_amount) : 0;
+  const address = [order.shipping_address_line, order.shipping_ward, order.shipping_district, order.shipping_province]
+    .filter(Boolean)
+    .join(", ");
+
+  return (
+    <div
+      className="admin-modal"
+      role="presentation"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="admin-modal__panel"
+        style={{ maxWidth: "780px", width: "95%", background: "#fff", padding: "24px", color: "#28251E" }}
+        role="dialog"
+        aria-label="Phiếu giao hàng"
+      >
+        <div
+          style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}
+          className="no-print"
+        >
+          <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Xem trước Phiếu giao hàng</h2>
+          <div style={{ display: "flex", gap: "8px" }}>
+            <button type="button" className="admin-button admin-button--primary" onClick={() => window.print()}>
+              🖨️ In phiếu ngay
+            </button>
+            <button type="button" className="admin-button admin-button--quiet" onClick={onClose}>
+              Đóng
+            </button>
+          </div>
+        </div>
+
+        {/* Printable Section */}
+        <div
+          id="printable-shipping-invoice"
+          style={{
+            border: "2px solid #28251E",
+            padding: "20px",
+            color: "#111",
+            background: "#fff",
+            fontFamily: "Arial, sans-serif",
+          }}
+        >
+          {/* Header */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+              borderBottom: "2px solid #8B3A1A",
+              paddingBottom: "12px",
+              marginBottom: "14px",
+            }}
+          >
+            <div>
+              <h1
+                style={{
+                  margin: "0 0 4px",
+                  fontSize: "17px",
+                  color: "#8B3A1A",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.5px",
+                  fontWeight: "bold",
+                }}
+              >
+                NƯỚC MẮM NAM Ô — HƯƠNG LÀNG CỔ
+              </h1>
+              <p style={{ margin: "2px 0", fontSize: "11px", color: "#555" }}>
+                Đặc sản truyền thống tiến vua hơn 400 năm · Chuẩn OCOP 4 sao & HACCP
+              </p>
+              <p style={{ margin: "2px 0", fontSize: "11px" }}>
+                Địa chỉ xưởng: Kiệt 884/74/4 Nguyễn Lương Bằng, P. Hòa Hiệp Nam, Q. Liên Chiểu, TP. Đà Nẵng
+              </p>
+              <p style={{ margin: "2px 0", fontSize: "11px" }}>
+                Hotline / Zalo: <strong>0935 998 908</strong> · Email: huonglangco.namo@gmail.com
+              </p>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: "11.5px", color: "#666" }}>MÃ ĐƠN HÀNG</div>
+              <div style={{ fontSize: "20px", fontWeight: "bold", color: "#8B3A1A", letterSpacing: "1px" }}>
+                {order.order_code}
+              </div>
+              <div style={{ fontSize: "11px", color: "#777", marginTop: "2px" }}>
+                {new Date(order.created_at).toLocaleString("vi-VN")}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ textAlign: "center", margin: "10px 0 16px" }}>
+            <h2
+              style={{
+                margin: 0,
+                fontSize: "16px",
+                textTransform: "uppercase",
+                letterSpacing: "1px",
+                color: "#28251E",
+              }}
+            >
+              PHIẾU GIAO HÀNG & THU TIỀN
+            </h2>
+          </div>
+
+          {/* Sender & Receiver Boxes */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "14px",
+              marginBottom: "14px",
+              fontSize: "12px",
+            }}
+          >
+            <div style={{ border: "1px solid #ccc", padding: "10px", borderRadius: "4px" }}>
+              <div
+                style={{
+                  fontWeight: "bold",
+                  color: "#8B3A1A",
+                  marginBottom: "4px",
+                  textTransform: "uppercase",
+                  fontSize: "11px",
+                }}
+              >
+                1. Người gửi:
+              </div>
+              <div>
+                <strong>Nước mắm Nam Ô Hương Làng Cổ</strong>
+              </div>
+              <div>SĐT: 0935 998 908</div>
+              <div>Tổ 97 (Nam Ô 2), Hòa Hiệp Nam, Liên Chiểu, Đà Nẵng</div>
+            </div>
+
+            <div
+              style={{
+                border: "2px solid #8B3A1A",
+                padding: "10px",
+                borderRadius: "4px",
+                background: "#FAF8F4",
+              }}
+            >
+              <div
+                style={{
+                  fontWeight: "bold",
+                  color: "#8B3A1A",
+                  marginBottom: "4px",
+                  textTransform: "uppercase",
+                  fontSize: "11px",
+                }}
+              >
+                2. Người nhận:
+              </div>
+              <div style={{ fontSize: "14px", fontWeight: "bold" }}>{order.customer_name}</div>
+              <div style={{ fontSize: "13px", fontWeight: "bold", color: "#8B3A1A", margin: "2px 0" }}>
+                SĐT: {order.customer_phone}
+              </div>
+              <div style={{ lineHeight: "1.4" }}>Địa chỉ: {address}</div>
+              {order.note && <div style={{ color: "#C0392B", marginTop: "4px" }}>Ghi chú: {order.note}</div>}
+            </div>
+          </div>
+
+          {/* Items Table */}
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "11.5px", marginBottom: "14px" }}>
+            <thead>
+              <tr style={{ background: "#F5F2EB", borderTop: "1px solid #ddd", borderBottom: "1px solid #ddd" }}>
+                <th style={{ padding: "6px 8px", textAlign: "left" }}>STT</th>
+                <th style={{ padding: "6px 8px", textAlign: "left" }}>Tên sản phẩm & Quy cách</th>
+                <th style={{ padding: "6px 8px", textAlign: "center", width: "50px" }}>SL</th>
+                <th style={{ padding: "6px 8px", textAlign: "right", width: "95px" }}>Đơn giá</th>
+                <th style={{ padding: "6px 8px", textAlign: "right", width: "105px" }}>Thành tiền</th>
+              </tr>
+            </thead>
+            <tbody>
+              {order.items?.map((item, index) => (
+                <tr key={index} style={{ borderBottom: "1px solid #eee" }}>
+                  <td style={{ padding: "6px 8px" }}>{index + 1}</td>
+                  <td style={{ padding: "6px 8px" }}>
+                    <strong>{item.product_name}</strong> - {item.variant_name}
+                  </td>
+                  <td style={{ padding: "6px 8px", textAlign: "center" }}>{item.quantity}</td>
+                  <td style={{ padding: "6px 8px", textAlign: "right" }}>
+                    {new Intl.NumberFormat("vi-VN").format(Number(item.unit_price))} ₫
+                  </td>
+                  <td style={{ padding: "6px 8px", textAlign: "right", fontWeight: "bold" }}>
+                    {new Intl.NumberFormat("vi-VN").format(Number(item.subtotal))} ₫
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* Totals & Collection Box */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1.2fr 1fr",
+              gap: "14px",
+              alignItems: "center",
+              marginBottom: "16px",
+            }}
+          >
+            <div
+              style={{
+                border: "2px solid #28251E",
+                padding: "10px",
+                textAlign: "center",
+                borderRadius: "4px",
+                background: amountToCollect > 0 ? "#FFF8E1" : "#E8F5E9",
+              }}
+            >
+              <div style={{ fontSize: "11px", fontWeight: "bold", textTransform: "uppercase", color: "#555" }}>
+                TIỀN THU NGƯỜI NHẬN (SHIPPER THU):
+              </div>
+              <div
+                style={{
+                  fontSize: "22px",
+                  fontWeight: "900",
+                  color: amountToCollect > 0 ? "#C0392B" : "#1B5E20",
+                  margin: "4px 0",
+                }}
+              >
+                {amountToCollect > 0 ? `${new Intl.NumberFormat("vi-VN").format(amountToCollect)} ₫` : "0 ₫ (ĐÃ THANH TOÁN)"}
+              </div>
+              <div style={{ fontSize: "10.5px", color: "#666" }}>
+                Hình thức:{" "}
+                {order.payments?.[0]?.payment_method === "COD"
+                  ? "Thanh toán khi nhận hàng (COD)"
+                  : "Chuyển khoản VietQR / Trực tuyến"}
+              </div>
+            </div>
+
+            <div style={{ fontSize: "11.5px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", margin: "2px 0" }}>
+                <span>Tiền hàng:</span>
+                <span>{new Intl.NumberFormat("vi-VN").format(Number(order.subtotal))} ₫</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", margin: "2px 0" }}>
+                <span>Phí vận chuyển:</span>
+                <span>{new Intl.NumberFormat("vi-VN").format(Number(order.shipping_fee))} ₫</span>
+              </div>
+              {Number(order.discount_amount) > 0 && (
+                <div
+                  style={{ display: "flex", justifyContent: "space-between", margin: "2px 0", color: "#1B5E20" }}
+                >
+                  <span>Giảm giá ({order.coupon_code || "Ưu đãi"}):</span>
+                  <span>-{new Intl.NumberFormat("vi-VN").format(Number(order.discount_amount))} ₫</span>
+                </div>
+              )}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  margin: "4px 0 0",
+                  paddingTop: "4px",
+                  borderTop: "1px solid #ddd",
+                  fontWeight: "bold",
+                }}
+              >
+                <span>Tổng giá trị đơn:</span>
+                <span style={{ color: "#8B3A1A" }}>
+                  {new Intl.NumberFormat("vi-VN").format(Number(order.total_amount))} ₫
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Signature Box */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr 1fr",
+              textAlign: "center",
+              fontSize: "11px",
+              marginTop: "20px",
+              paddingTop: "10px",
+              borderTop: "1px dashed #ccc",
+            }}
+          >
+            <div>
+              <strong>Người gửi hàng</strong>
+              <div style={{ height: "45px" }} />
+              <span>(Ký, ghi rõ họ tên)</span>
+            </div>
+            <div>
+              <strong>Nhân viên giao nhận</strong>
+              <div style={{ height: "45px" }} />
+              <span>(Ký, ghi rõ họ tên)</span>
+            </div>
+            <div>
+              <strong>Người nhận hàng</strong>
+              <div style={{ height: "45px" }} />
+              <span>(Đã kiểm tra hàng nguyên vẹn)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function OrderDetail({ id, onBack }: { id: number; onBack: () => void }) {
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
@@ -775,6 +1129,7 @@ function OrderDetail({ id, onBack }: { id: number; onBack: () => void }) {
   const [notice, setNotice] = useState("");
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
+  const [printModal, setPrintModal] = useState(false);
   const load = useCallback(async () => {
     setLoading(true); setError("");
     try { const value = await api.admin.order(id); setOrder(value); setStatus(value.status); }
@@ -804,7 +1159,22 @@ function OrderDetail({ id, onBack }: { id: number; onBack: () => void }) {
   const statuses = [order.status, ...(allowedTransitions[order.status] ?? [])];
   return <section className="admin-detail-page">
     <button className="admin-link-button" onClick={onBack}>← Danh sách đơn hàng</button>
-    <header className="admin-page-heading"><div><p className="admin-eyebrow">Chi tiết đơn</p><h1>{order.order_code}</h1><p>{order.customer_name} · {formatCell("created_at", order.created_at)}</p></div></header>
+    <header className="admin-page-heading">
+      <div>
+        <p className="admin-eyebrow">Chi tiết đơn</p>
+        <h1>{order.order_code}</h1>
+        <p>{order.customer_name} · {formatCell("created_at", order.created_at)}</p>
+      </div>
+      <div className="admin-row-actions">
+        <button
+          type="button"
+          className="admin-button admin-button--primary"
+          onClick={() => setPrintModal(true)}
+        >
+          🖨️ In phiếu giao hàng
+        </button>
+      </div>
+    </header>
     {notice && <p className="admin-inline-notice" role="status">{notice}</p>}
     <div className="admin-detail-grid">
       <section className="admin-detail-card"><h2>Thông tin nhận hàng</h2><p>{order.customer_name} · {order.customer_phone}</p><p>{[order.shipping_address_line, order.shipping_ward, order.shipping_district, order.shipping_province].filter(Boolean).join(", ")}</p>{order.note && <p>Ghi chú: {order.note}</p>}
@@ -812,6 +1182,7 @@ function OrderDetail({ id, onBack }: { id: number; onBack: () => void }) {
       <section className="admin-detail-card"><h2>Tổng kết</h2><p>Tạm tính <strong>{formatCell("total_amount", order.subtotal)}</strong></p><p>Phí giao hàng <strong>{formatCell("total_amount", order.shipping_fee)}</strong></p><p>Giảm giá <strong>{formatCell("total_amount", order.discount_amount)}</strong></p><p className="admin-total">Tổng cộng <strong>{formatCell("total_amount", order.total_amount)}</strong></p><p>Thanh toán {order.payments?.[0]?.payment_method ?? "—"} · {order.payments?.[0]?.payment_status ?? "—"}</p>
         <label className="admin-form-field"><span>Trạng thái đơn</span><select value={status} onChange={(event) => setStatus(event.target.value)}>{statuses.map((value) => <option key={value}>{value}</option>)}</select></label><button className="admin-button admin-button--primary" disabled={busy || status === order.status} onClick={() => void saveStatus()}>{busy ? "Đang lưu…" : "Cập nhật trạng thái"}</button></section>
     </div>
+    {printModal && <ShippingInvoiceModal order={order} onClose={() => setPrintModal(false)} />}
   </section>;
 }
 

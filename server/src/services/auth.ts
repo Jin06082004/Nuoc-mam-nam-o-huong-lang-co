@@ -77,3 +77,99 @@ export async function getActiveUser(id: string): Promise<AuthUser | null> {
     phone: user.phone,
   };
 }
+
+interface PasswordResetRow extends RowDataPacket {
+  id: number;
+  email: string;
+  otp_code: string;
+  expires_at: Date;
+  used_at: Date | null;
+}
+
+export async function requestPasswordReset(email: string): Promise<{ success: boolean; message: string }> {
+  const normalizedEmail = email.trim().toLowerCase();
+  const existingUsers = await rows<ActiveUserRow>(
+    "SELECT id, role, full_name AS fullName, email, phone, status FROM users WHERE email=? AND status='ACTIVE' LIMIT 1",
+    [normalizedEmail],
+  );
+  const user = existingUsers[0];
+
+  // Return generic success even if user not found to prevent account enumeration
+  if (!user || !user.email) {
+    return {
+      success: true,
+      message: "Nếu email tồn tại trong hệ thống, mã xác thực (OTP) đã được gửi.",
+    };
+  }
+
+  // Generate secure 6-digit OTP code
+  const crypto = await import("crypto");
+  const otp = crypto.randomInt(100000, 1000000).toString();
+
+  // Invalidate any existing unused OTPs for this email
+  await execute(
+    "UPDATE password_resets SET used_at = NOW() WHERE email = ? AND used_at IS NULL",
+    [normalizedEmail],
+  );
+
+  // Insert new OTP with 15-minute validity
+  await execute(
+    "INSERT INTO password_resets (email, otp_code, expires_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 15 MINUTE))",
+    [normalizedEmail, otp],
+  );
+
+  // Send branded OTP email via SMTP
+  const { sendPasswordResetOtpEmail } = await import("./mail");
+  void sendPasswordResetOtpEmail({
+    email: user.email,
+    fullName: user.fullName,
+    otp,
+  }).catch((err) => {
+    console.error("[AUTH] Error sending password reset email:", err);
+  });
+
+  return {
+    success: true,
+    message: "Mã xác thực (OTP) đã được gửi tới email của bạn. Vui lòng kiểm tra hộp thư.",
+  };
+}
+
+export async function resetPassword(
+  email: string,
+  otp: string,
+  newPassword: string,
+): Promise<{ success: boolean; message: string }> {
+  const normalizedEmail = email.trim().toLowerCase();
+  const resetRows = await rows<PasswordResetRow>(
+    `SELECT id, email, otp_code, expires_at, used_at
+     FROM password_resets
+     WHERE email = ? AND otp_code = ? AND used_at IS NULL AND expires_at > NOW()
+     ORDER BY id DESC LIMIT 1`,
+    [normalizedEmail, otp.trim()],
+  );
+
+  const resetRecord = resetRows[0];
+  if (!resetRecord) {
+    throw new AppError("Mã xác thực không hợp lệ hoặc đã hết hạn (15 phút). Vui lòng yêu cầu mã mới.", 400);
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 12);
+
+  // Update user's password
+  const updateResult = await execute(
+    "UPDATE users SET password_hash = ? WHERE email = ? AND status = 'ACTIVE'",
+    [passwordHash, normalizedEmail],
+  );
+
+  if (updateResult.affectedRows === 0) {
+    throw new AppError("Không tìm thấy tài khoản hợp lệ để cập nhật mật khẩu.", 404);
+  }
+
+  // Mark token as used
+  await execute("UPDATE password_resets SET used_at = NOW() WHERE id = ?", [resetRecord.id]);
+
+  return {
+    success: true,
+    message: "Đặt lại mật khẩu thành công! Bạn có thể đăng nhập bằng mật khẩu mới.",
+  };
+}

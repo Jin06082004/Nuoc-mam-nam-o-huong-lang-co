@@ -33,6 +33,14 @@ export const loginSchema = z.object({
   identifier: z.string().trim().min(1).max(254),
   password: z.string().min(1).max(128),
 });
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().email().max(254).transform((value) => value.toLowerCase()),
+});
+export const resetPasswordSchema = z.object({
+  email: z.string().trim().email().max(254).transform((value) => value.toLowerCase()),
+  otp: z.string().trim().length(6).regex(/^\d{6}$/, "Mã xác thực phải gồm 6 chữ số"),
+  new_password: z.string().min(10).max(128),
+});
 export const categorySchema = z.object({
   name: z.string().trim().min(1).max(150),
   slug: z.string().trim().min(1).max(180).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),

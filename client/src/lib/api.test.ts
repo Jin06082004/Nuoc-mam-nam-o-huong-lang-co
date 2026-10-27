@@ -225,4 +225,33 @@ describe("API client", () => {
     expect(fetchMock.mock.calls[2]?.[0]).toBe("http://localhost:3001/api/orders/lookup/cancel");
     expect(fetchMock.mock.calls[3]?.[0]).toBe("http://localhost:3001/api/orders");
   });
+
+  it("handles forgot-password and reset-password requests", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({
+        success: true,
+        data: { success: true, message: "Đã gửi mã xác thực." },
+      }))
+      .mockResolvedValueOnce(Response.json({
+        success: true,
+        data: { success: true, message: "Đặt lại mật khẩu thành công." },
+      }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(api.forgotPassword("user@example.com")).resolves.toMatchObject({
+      success: true,
+      message: "Đã gửi mã xác thực.",
+    });
+    await expect(api.resetPassword({
+      email: "user@example.com",
+      otp: "123456",
+      new_password: "NewSecretPassword123!",
+    })).resolves.toMatchObject({
+      success: true,
+      message: "Đặt lại mật khẩu thành công.",
+    });
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("http://localhost:3001/api/auth/forgot-password");
+    expect(fetchMock.mock.calls[1]?.[0]).toBe("http://localhost:3001/api/auth/reset-password");
+  });
 });

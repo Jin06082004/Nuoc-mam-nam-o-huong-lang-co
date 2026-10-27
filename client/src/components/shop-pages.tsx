@@ -809,6 +809,13 @@ export function AuthPage({ mode }: { mode: "login" | "register" }) {
             <input id="confirm_password" type={visible ? "text" : "password"} autoComplete="new-password" required value={values.confirm_password} onChange={(event) => update("confirm_password", event.target.value)} />
           </>
         )}
+        {mode === "login" && (
+          <div style={{ textAlign: "right", margin: "-6px 0 14px" }}>
+            <Link href="/quen-mat-khau" style={{ fontSize: "0.88rem", color: "var(--color-wood)", textDecoration: "underline" }}>
+              Quên mật khẩu?
+            </Link>
+          </div>
+        )}
         {errors.length > 0 && <div className="inline-error" role="alert"><ul>{errors.map((error, index) => <li key={`${error}-${index}`}>{error}</li>)}</ul></div>}
         <Button type="submit" disabled={busy} className="button--full">{busy ? "Đang xử lý…" : mode === "login" ? "Đăng nhập" : "Tạo tài khoản"}</Button>
         <p className="auth-card__switch">
@@ -816,6 +823,251 @@ export function AuthPage({ mode }: { mode: "login" | "register" }) {
           <Link href={mode === "login" ? "/dang-ky" : "/dang-nhap"}>{mode === "login" ? "Đăng ký" : "Đăng nhập"}</Link>
         </p>
       </form>
+    </main>
+  );
+}
+
+export function ForgotPasswordPage() {
+  const router = useRouter();
+  const { notify } = useStore();
+  const [step, setStep] = useState<1 | 2>(1);
+  const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [visible, setVisible] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [successMsg, setSuccessMsg] = useState("");
+  const [countdown, setCountdown] = useState(0);
+
+  useEffect(() => {
+    if (countdown <= 0) return;
+    const timer = setInterval(() => setCountdown((c) => c - 1), 1000);
+    return () => clearInterval(timer);
+  }, [countdown]);
+
+  async function handleRequestOtp(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const trimmed = email.trim();
+    if (!trimmed || !trimmed.includes("@")) {
+      setErrors(["Vui lòng nhập địa chỉ email hợp lệ."]);
+      return;
+    }
+    setErrors([]);
+    setBusy(true);
+    try {
+      const res = await api.forgotPassword(trimmed);
+      setSuccessMsg(res.message || "Mã xác thực (OTP) đã được gửi tới email của bạn.");
+      notify("Đã gửi mã xác thực tới email của bạn.");
+      setStep(2);
+      setCountdown(60);
+    } catch (cause) {
+      setErrors([cause instanceof ApiError ? cause.message : "Không thể gửi yêu cầu đặt lại mật khẩu."]);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleResetPassword(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const cleanOtp = otp.trim();
+    if (cleanOtp.length !== 6 || !/^\d{6}$/.test(cleanOtp)) {
+      setErrors(["Mã xác thực (OTP) phải gồm đúng 6 chữ số."]);
+      return;
+    }
+    if (newPassword.length < 10) {
+      setErrors(["Mật khẩu mới cần tối thiểu 10 ký tự để đảm bảo an toàn."]);
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setErrors(["Mật khẩu xác nhận không khớp."]);
+      return;
+    }
+    setErrors([]);
+    setBusy(true);
+    try {
+      const res = await api.resetPassword({
+        email: email.trim(),
+        otp: cleanOtp,
+        new_password: newPassword,
+      });
+      notify(res.message || "Đặt lại mật khẩu thành công!", "success");
+      setSuccessMsg("Đặt lại mật khẩu thành công! Đang chuyển hướng về trang đăng nhập…");
+      setTimeout(() => {
+        router.push("/dang-nhap");
+      }, 1500);
+    } catch (cause) {
+      setErrors([cause instanceof ApiError ? cause.message : "Không thể đặt lại mật khẩu."]);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main className="auth-page container">
+      <div className="auth-card form-card">
+        <p className="eyebrow">Khôi phục tài khoản</p>
+        <h1>Quên mật khẩu</h1>
+        <p>
+          {step === 1
+            ? "Nhập email liên kết với tài khoản Hương Làng Cổ để nhận mã xác thực OTP qua Gmail."
+            : `Nhập mã OTP 6 số đã gửi tới ${email} và thiết lập mật khẩu mới.`}
+        </p>
+
+        {successMsg && (
+          <div
+            style={{
+              padding: "10px 14px",
+              background: "#E8F5E9",
+              color: "#1B5E20",
+              borderRadius: "6px",
+              border: "1px solid #A5D6A7",
+              fontSize: "0.9rem",
+              marginBottom: "16px",
+            }}
+          >
+            ✓ {successMsg}
+          </div>
+        )}
+
+        {step === 1 ? (
+          <form onSubmit={handleRequestOtp} noValidate>
+            <label htmlFor="reset-email">Email tài khoản</label>
+            <input
+              id="reset-email"
+              type="email"
+              autoComplete="email"
+              required
+              placeholder="nhap-email-cua-ban@gmail.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={busy}
+            />
+
+            {errors.length > 0 && (
+              <div className="inline-error" role="alert">
+                <ul>
+                  {errors.map((error, idx) => (
+                    <li key={`${error}-${idx}`}>{error}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <Button type="submit" disabled={busy} className="button--full" style={{ marginTop: "12px" }}>
+              {busy ? "Đang gửi mã…" : "Gửi mã xác thực qua Email"}
+            </Button>
+          </form>
+        ) : (
+          <form onSubmit={handleResetPassword} noValidate>
+            <label htmlFor="reset-otp">Mã xác thực (OTP 6 số)</label>
+            <input
+              id="reset-otp"
+              type="text"
+              autoComplete="one-time-code"
+              maxLength={6}
+              required
+              placeholder="123456"
+              style={{
+                fontSize: "1.25rem",
+                letterSpacing: "6px",
+                textAlign: "center",
+                fontWeight: 700,
+                color: "var(--color-wood)",
+              }}
+              value={otp}
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+              disabled={busy}
+            />
+
+            <label htmlFor="new-password">Mật khẩu mới (ít nhất 10 ký tự)</label>
+            <div className="password-field">
+              <input
+                id="new-password"
+                type={visible ? "text" : "password"}
+                autoComplete="new-password"
+                required
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                disabled={busy}
+              />
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => setVisible((cur) => !cur)}
+                aria-label={visible ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+              >
+                {visible ? "Ẩn" : "Hiện"}
+              </button>
+            </div>
+
+            <label htmlFor="confirm-new-password">Xác nhận mật khẩu mới</label>
+            <input
+              id="confirm-new-password"
+              type={visible ? "text" : "password"}
+              autoComplete="new-password"
+              required
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              disabled={busy}
+            />
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "10px 0" }}>
+              <button
+                type="button"
+                className="text-button"
+                style={{ fontSize: "0.85rem", color: "var(--color-wood)" }}
+                onClick={() => {
+                  setStep(1);
+                  setErrors([]);
+                }}
+              >
+                ← Đổi email khác
+              </button>
+
+              <button
+                type="button"
+                className="text-button"
+                style={{ fontSize: "0.85rem", color: countdown > 0 ? "#999" : "var(--color-gold)" }}
+                disabled={countdown > 0 || busy}
+                onClick={async () => {
+                  setBusy(true);
+                  try {
+                    const res = await api.forgotPassword(email.trim());
+                    notify(res.message || "Đã gửi lại mã OTP.");
+                    setCountdown(60);
+                  } catch (err) {
+                    notify(err instanceof ApiError ? err.message : "Chưa thể gửi lại mã.", "error");
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                {countdown > 0 ? `Gửi lại mã sau ${countdown}s` : "Gửi lại mã OTP"}
+              </button>
+            </div>
+
+            {errors.length > 0 && (
+              <div className="inline-error" role="alert">
+                <ul>
+                  {errors.map((error, idx) => (
+                    <li key={`${error}-${idx}`}>{error}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <Button type="submit" disabled={busy} className="button--full" style={{ marginTop: "12px" }}>
+              {busy ? "Đang xử lý…" : "Xác nhận đặt lại mật khẩu"}
+            </Button>
+          </form>
+        )}
+
+        <p className="auth-card__switch" style={{ marginTop: "18px" }}>
+          Nhớ mật khẩu? <Link href="/dang-nhap">Quay lại Đăng nhập</Link>
+        </p>
+      </div>
     </main>
   );
 }

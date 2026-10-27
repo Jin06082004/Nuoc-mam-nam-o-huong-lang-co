@@ -955,3 +955,27 @@ h3 { font-size: 1.25rem; }
   color: var(--color-muted, #766e65);
   margin-bottom: 2px;
 }
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #printable-shipping-invoice,
+  #printable-shipping-invoice * {
+    visibility: visible;
+  }
+  #printable-shipping-invoice {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 10mm;
+    box-shadow: none !important;
+    border: 1px solid #333 !important;
+    background: #fff !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
