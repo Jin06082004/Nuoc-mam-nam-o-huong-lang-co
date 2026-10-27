@@ -3,6 +3,25 @@ import { z } from "zod";
 
 dotenv.config();
 
+if (process.env.DATABASE_URL) {
+  try {
+    const parsedUrl = new URL(process.env.DATABASE_URL.replace(/^mariadb:/, "mysql:"));
+    process.env.DATABASE_HOST = process.env.DATABASE_HOST || parsedUrl.hostname;
+    process.env.DATABASE_PORT = process.env.DATABASE_PORT || (parsedUrl.port ? String(parsedUrl.port) : "3306");
+    process.env.DATABASE_NAME = process.env.DATABASE_NAME || parsedUrl.pathname.replace(/^\//, "");
+    process.env.DATABASE_USER = process.env.DATABASE_USER || decodeURIComponent(parsedUrl.username);
+    process.env.DATABASE_PASSWORD = process.env.DATABASE_PASSWORD !== undefined ? process.env.DATABASE_PASSWORD : decodeURIComponent(parsedUrl.password);
+  } catch (err) {
+    console.warn("Unable to parse DATABASE_URL:", err);
+  }
+}
+
+if (process.env.DB_HOST) process.env.DATABASE_HOST = process.env.DATABASE_HOST || process.env.DB_HOST;
+if (process.env.DB_PORT) process.env.DATABASE_PORT = process.env.DATABASE_PORT || process.env.DB_PORT;
+if (process.env.DB_DATABASE) process.env.DATABASE_NAME = process.env.DATABASE_NAME || process.env.DB_DATABASE;
+if (process.env.DB_USERNAME) process.env.DATABASE_USER = process.env.DATABASE_USER || process.env.DB_USERNAME;
+if (process.env.DB_PASSWORD !== undefined) process.env.DATABASE_PASSWORD = process.env.DATABASE_PASSWORD !== undefined ? process.env.DATABASE_PASSWORD : process.env.DB_PASSWORD;
+
 const envSchema = z.object({
   DATABASE_HOST: z.string().min(1),
   DATABASE_PORT: z.coerce.number().int().positive().default(3306),
@@ -12,7 +31,7 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(32),
   PORT: z.coerce.number().int().positive().default(3001),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-  FRONTEND_URL: z.string().url(),
+  FRONTEND_URL: z.string().url().default("http://localhost:3000"),
   SHIPPING_FEE: z.preprocess(
     (value) => typeof value === "string" && value.trim() === "" ? undefined : value,
     z.coerce.number().nonnegative().max(9_999_999_999.99).optional(),

@@ -11,8 +11,8 @@ async function start(): Promise<void> {
     return;
   }
 
-  const server = app.listen(env.PORT, () => {
-    console.info(`API listening on port ${env.PORT} (${env.NODE_ENV})`);
+  const server = app.listen(env.PORT, "0.0.0.0", () => {
+    console.info(`API listening on 0.0.0.0:${env.PORT} (${env.NODE_ENV})`);
     console.info("MySQL connection established");
   });
 

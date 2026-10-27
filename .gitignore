@@ -36,3 +36,6 @@ uploads/
 !uploads/.gitkeep
 !*/uploads/.gitkeep
 
+# IDE & Editor
+.vscode/
+
