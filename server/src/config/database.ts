@@ -40,55 +40,59 @@ export async function execute(
 export async function checkDatabase(): Promise<void> {
   await pool.query("SELECT 1");
   try {
-    const [settingsTable] = await pool.query<RowDataPacket[]>("SHOW TABLES LIKE 'store_settings'");
-    if (settingsTable.length === 0) {
-      console.info("store_settings not detected; applying database schema...");
-      const schemaPaths = [
-        path.resolve(process.cwd(), "schema.sql"),
-        path.resolve(__dirname, "../../schema.sql"),
-        path.resolve(__dirname, "../../../database/schema.sql"),
-      ];
-      let sql = "";
-      for (const p of schemaPaths) {
-        if (fs.existsSync(p)) {
-          sql = fs.readFileSync(p, "utf8");
-          break;
-        }
-      }
-      if (sql) {
-        const sanitized = sql
-          .replace(/CREATE DATABASE[\s\S]*?;/gi, "")
-          .replace(/USE [\s\S]*?;/gi, "");
+    const [existingTables] = await pool.query<RowDataPacket[]>("SHOW TABLES");
+    const currentTableNames = existingTables.map((r) => Object.values(r)[0] as string);
+    console.info("Initial tables detected:", currentTableNames.sort());
 
-        const statements = sanitized
-          .split(";")
-          .map((s) => s.trim())
-          .filter((s) => s.length > 0);
-
-        for (const stmt of statements) {
-          try {
-            await pool.query(stmt);
-          } catch (err: any) {
-            let fixed = false;
-            if (stmt.includes("STORED")) {
-              try {
-                await pool.query(stmt.replace(/\bSTORED\b/g, "PERSISTENT"));
-                fixed = true;
-              } catch {
-                try {
-                  await pool.query(stmt.replace(/\bSTORED\b/g, "VIRTUAL"));
-                  fixed = true;
-                } catch {}
-              }
-            }
-            if (!fixed) {
-              console.error(`Schema statement failed [${err?.code}]: "${stmt.slice(0, 60)}..." -> ${err?.message}`);
-            }
-          }
-        }
-        console.info("Database schema applied.");
+    const schemaPaths = [
+      path.resolve(process.cwd(), "schema.sql"),
+      path.resolve(__dirname, "../../schema.sql"),
+      path.resolve(__dirname, "../../../database/schema.sql"),
+    ];
+    let sql = "";
+    for (const p of schemaPaths) {
+      if (fs.existsSync(p)) {
+        sql = fs.readFileSync(p, "utf8");
+        break;
       }
     }
+    if (sql) {
+      const sanitized = sql
+        .replace(/CREATE DATABASE[\s\S]*?;/gi, "")
+        .replace(/USE [\s\S]*?;/gi, "");
+
+      const statements = sanitized
+        .split(";")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+
+      for (const stmt of statements) {
+        try {
+          await pool.query(stmt);
+        } catch (err: any) {
+          let fixed = false;
+          if (stmt.includes("STORED")) {
+            try {
+              await pool.query(stmt.replace(/\bSTORED\b/g, "PERSISTENT"));
+              fixed = true;
+            } catch {
+              try {
+                await pool.query(stmt.replace(/\bSTORED\b/g, "VIRTUAL"));
+                fixed = true;
+              } catch {}
+            }
+          }
+          if (!fixed) {
+            console.error(`Schema statement failed [${err?.code}]: "${stmt.slice(0, 60)}..." -> ${err?.message}`);
+          }
+        }
+      }
+      console.info("Database schema applied.");
+    }
+
+    const [finalTables] = await pool.query<RowDataPacket[]>("SHOW TABLES");
+    const finalTableNames = finalTables.map((r) => Object.values(r)[0] as string);
+    console.info("Final database tables:", finalTableNames.sort());
 
     try {
       const [prodRows] = await pool.query<RowDataPacket[]>("SELECT COUNT(*) AS total FROM products");
