@@ -13,12 +13,30 @@ export const metadata: Metadata = {
   },
   description: "Website cửa hàng Nước mắm Nam Ô Hương Làng Cổ. Thông tin sản phẩm chính thức sẽ được chủ thương hiệu cập nhật.",
   alternates: { canonical: "/" },
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/images/logo.jpg", sizes: "512x512", type: "image/jpeg" },
+    ],
+    shortcut: ["/favicon.ico"],
+    apple: [
+      { url: "/images/logo.jpg", sizes: "180x180", type: "image/jpeg" },
+    ],
+  },
   openGraph: {
     type: "website",
     locale: "vi_VN",
     siteName: "Nước mắm Nam Ô Hương Làng Cổ",
     title: "Nước mắm Nam Ô Hương Làng Cổ",
     description: "Website cửa hàng Nước mắm Nam Ô Hương Làng Cổ.",
+    images: [
+      {
+        url: "/images/logo.jpg",
+        width: 1200,
+        height: 1200,
+        alt: "Logo Nước mắm Nam Ô Hương Làng Cổ",
+      },
+    ],
   },
 };
 
