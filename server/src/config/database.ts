@@ -40,9 +40,9 @@ export async function execute(
 export async function checkDatabase(): Promise<void> {
   await pool.query("SELECT 1");
   try {
-    const [tables] = await pool.query<RowDataPacket[]>("SHOW TABLES LIKE 'products'");
-    if (tables.length === 0) {
-      console.info("Schema not detected in target database; applying initial schema...");
+    const [settingsTable] = await pool.query<RowDataPacket[]>("SHOW TABLES LIKE 'store_settings'");
+    if (settingsTable.length === 0) {
+      console.info("store_settings not detected; applying database schema...");
       const schemaPaths = [
         path.resolve(process.cwd(), "schema.sql"),
         path.resolve(__dirname, "../../schema.sql"),
@@ -59,8 +59,34 @@ export async function checkDatabase(): Promise<void> {
         const sanitized = sql
           .replace(/CREATE DATABASE[\s\S]*?;/gi, "")
           .replace(/USE [\s\S]*?;/gi, "");
-        await pool.query(sanitized);
-        console.info("Database schema applied successfully.");
+
+        const statements = sanitized
+          .split(";")
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0);
+
+        for (const stmt of statements) {
+          try {
+            await pool.query(stmt);
+          } catch (err: any) {
+            let fixed = false;
+            if (stmt.includes("STORED")) {
+              try {
+                await pool.query(stmt.replace(/\bSTORED\b/g, "PERSISTENT"));
+                fixed = true;
+              } catch {
+                try {
+                  await pool.query(stmt.replace(/\bSTORED\b/g, "VIRTUAL"));
+                  fixed = true;
+                } catch {}
+              }
+            }
+            if (!fixed) {
+              console.error(`Schema statement failed [${err?.code}]: "${stmt.slice(0, 60)}..." -> ${err?.message}`);
+            }
+          }
+        }
+        console.info("Database schema applied.");
       }
     }
 
@@ -71,10 +97,10 @@ export async function checkDatabase(): Promise<void> {
         console.info("Products table is empty. Running seedVerifiedData...");
         await seedVerifiedData(pool);
       }
-    } catch (seedErr) {
-      console.warn("Seed verified data check warning:", seedErr);
+    } catch (seedErr: any) {
+      console.warn("Seed verified data check warning:", seedErr?.message || seedErr);
     }
-  } catch (err) {
-    console.warn("Schema initialization check warning:", err);
+  } catch (err: any) {
+    console.warn("Database initialization check warning:", err?.message || err);
   }
 }
