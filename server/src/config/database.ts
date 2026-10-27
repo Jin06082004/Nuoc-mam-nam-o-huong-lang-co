@@ -66,7 +66,12 @@ export async function checkDatabase(): Promise<void> {
         .map((s) => s.trim())
         .filter((s) => s.length > 0);
 
-      for (const stmt of statements) {
+      for (let stmt of statements) {
+        if (stmt.includes("active_guest_token_hash")) {
+          stmt = stmt
+            .replace(/CHARACTER SET ascii COLLATE ascii_bin/gi, "")
+            .replace(/\bSTORED\b/g, "PERSISTENT");
+        }
         try {
           await pool.query(stmt);
         } catch (err: any) {
