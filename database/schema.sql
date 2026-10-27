@@ -166,26 +166,18 @@ CREATE TABLE IF NOT EXISTS inventory (
 
 CREATE TABLE IF NOT EXISTS carts (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    user_id BIGINT UNSIGNED NULL,
-    guest_token_hash CHAR(64) NULL,
+    user_id BIGINT UNSIGNED NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
     active_user_id BIGINT UNSIGNED
         GENERATED ALWAYS AS (CASE WHEN status = 'ACTIVE' THEN user_id ELSE NULL END) STORED,
-    active_guest_token_hash CHAR(64)
-        GENERATED ALWAYS AS (CASE WHEN status = 'ACTIVE' THEN guest_token_hash ELSE NULL END) STORED,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     UNIQUE KEY uq_carts_one_active_user (active_user_id),
-    UNIQUE KEY uq_carts_one_active_guest (active_guest_token_hash),
     KEY idx_carts_user_status (user_id, status),
     CONSTRAINT fk_carts_user
         FOREIGN KEY (user_id) REFERENCES users (id)
         ON DELETE RESTRICT ON UPDATE RESTRICT,
-    CONSTRAINT chk_carts_owner CHECK (
-        (user_id IS NOT NULL AND guest_token_hash IS NULL) OR
-        (user_id IS NULL AND guest_token_hash IS NOT NULL)
-    ),
     CONSTRAINT chk_carts_status CHECK (status IN ('ACTIVE', 'CONVERTED', 'ABANDONED', 'EXPIRED'))
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
