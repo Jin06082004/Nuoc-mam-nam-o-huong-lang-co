@@ -16,6 +16,34 @@ const navigation = [
   { label: "Liên hệ", href: "/lien-he" },
 ];
 
+function SearchIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="11" cy="11" r="8" />
+      <path d="m21 21-4.3-4.3" />
+    </svg>
+  );
+}
+
+function UserIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  );
+}
+
+function CartIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="8" cy="21" r="1" />
+      <circle cx="19" cy="21" r="1" />
+      <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12" />
+    </svg>
+  );
+}
+
 export function SiteHeader() {
   const pathname = usePathname();
   const router = useRouter();
@@ -57,7 +85,10 @@ export function SiteHeader() {
             unoptimized
             priority
           />
-          <span className="brand__text"><strong>{storeName}</strong></span>
+          <span className="brand__text">
+            <strong>{storeName}</strong>
+            <small>LÀNG NGHỀ TRUYỀN THỐNG ĐÀ NẴNG</small>
+          </span>
         </Link>
         <nav className={`main-nav ${menuOpen ? "main-nav--open" : ""}`} aria-label="Điều hướng chính">
           {navigation.map((item) => (
@@ -73,21 +104,21 @@ export function SiteHeader() {
           <form className="header-search header-search--mobile" onSubmit={submitSearch}>
             <label className="sr-only" htmlFor="mobile-search">Tìm sản phẩm</label>
             <input id="mobile-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm sản phẩm…" />
-            <button type="submit" aria-label="Tìm kiếm">⌕</button>
+            <button type="submit" aria-label="Tìm kiếm"><SearchIcon /></button>
           </form>
         </nav>
         <form className="header-search header-search--desktop" onSubmit={submitSearch}>
           <label className="sr-only" htmlFor="desktop-search">Tìm sản phẩm</label>
           <input id="desktop-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm sản phẩm…" />
-          <button type="submit" aria-label="Tìm kiếm">⌕</button>
+          <button type="submit" aria-label="Tìm kiếm"><SearchIcon /></button>
         </form>
         <div className="header-actions">
           <Link href={user ? "/tai-khoan" : "/dang-nhap"} className="header-action" aria-label={user ? "Tài khoản" : "Đăng nhập"}>
-            <span aria-hidden="true">♙</span><span className="header-action__label">{user ? "Tài khoản" : "Đăng nhập"}</span>
+            <UserIcon /><span className="header-action__label">{user ? "Tài khoản" : "Đăng nhập"}</span>
           </Link>
           {user && <button type="button" className="header-action header-action--logout" onClick={logout}>Thoát</button>}
           <Link href="/gio-hang" className="header-action header-action--cart" aria-label={`Giỏ hàng, ${cartCount} sản phẩm`}>
-            <span aria-hidden="true">♧</span><span className="header-action__label">Giỏ hàng</span>
+            <CartIcon /><span className="header-action__label">Giỏ hàng</span>
             <span className="cart-count">{cartCount}</span>
           </Link>
         </div>
@@ -128,7 +159,10 @@ export function SiteFooter() {
               className="brand__logo brand__logo--footer"
               unoptimized
             />
-            <span className="brand__text"><strong>{storeName}</strong></span>
+            <span className="brand__text">
+              <strong>{storeName}</strong>
+              <small>LÀNG NGHỀ TRUYỀN THỐNG ĐÀ NẴNG</small>
+            </span>
           </Link>
           {storeSettings?.store_description && <p>{storeSettings.store_description}</p>}
         </div>
@@ -157,9 +191,11 @@ export function SiteFooter() {
           {storeSettings?.contact_email && <a href={`mailto:${storeSettings.contact_email}`}>Email: {storeSettings.contact_email}</a>}
           {storeSettings?.store_address && <span style={{ fontSize: "0.85rem", display: "block", marginTop: "4px" }}>{storeSettings.store_address}</span>}
           {storeSettingsError && <p className="footer-note">Chưa tải được thông tin cửa hàng.</p>}
-          <div style={{ marginTop: "8px", display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          <div style={{ marginTop: "10px", display: "flex", gap: "8px", flexWrap: "wrap" }}>
             {socialLinks.map((link) => (
-              <a key={link.name} href={link.url} target="_blank" rel="noopener noreferrer">{link.name} ↗</a>
+              <a key={link.name} href={link.url} target="_blank" rel="noopener noreferrer" className="social-pill" style={{ minHeight: "36px", padding: "6px 14px", fontSize: "0.82rem" }}>
+                {link.name} ↗
+              </a>
             ))}
           </div>
           {!storeSettingsLoading && !storeSettingsError && socialLinks.length === 0 && <p className="footer-note">Chưa có liên kết mạng xã hội.</p>}
@@ -168,7 +204,7 @@ export function SiteFooter() {
       </div>
       <div className="footer-bottom">
         <div className="container footer-bottom__inner">
-          <span>© {new Date().getFullYear()}{storeName ? ` ${storeName}` : ""}</span>
+          <span>© {new Date().getFullYear()}{storeName ? ` ${storeName}` : ""}. Giữ trọn tinh hoa làng chài cổ Nam Ô.</span>
           <span>Thông tin do chủ thương hiệu cung cấp</span>
         </div>
       </div>

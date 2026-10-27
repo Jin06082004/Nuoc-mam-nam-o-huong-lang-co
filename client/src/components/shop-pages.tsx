@@ -130,7 +130,7 @@ export function CartPage() {
                     {items.map((item) => (
                       <article className="cart-item" key={item.id}>
                         <Link href={`/san-pham/${encodeURIComponent(item.slug)}`} aria-label={`Xem ${item.product_name}`}>
-                          <ProductImage alt={item.product_name} className="cart-item__image" />
+                          <ProductImage src={item.primary_image} alt={item.product_name} className="cart-item__image" />
                         </Link>
                         <div className="cart-item__details">
                           <h2><Link href={`/san-pham/${encodeURIComponent(item.slug)}`}>{item.product_name}</Link></h2>
@@ -466,20 +466,13 @@ export function CheckoutPage() {
                       </datalist>
                       {errors.shipping_province && <span className="field-error">{errors.shipping_province}</span>}
                     </label>
-                    <div style={{ display: "flex", gap: "0.4rem", marginTop: "-0.4rem", marginBottom: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
-                      <span style={{ fontSize: "0.75rem", color: "var(--color-muted)" }}>Gợi ý nhanh:</span>
+                    <div style={{ display: "flex", gap: "0.5rem", marginTop: "-0.25rem", marginBottom: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
+                      <span style={{ fontSize: "0.76rem", color: "var(--color-muted)", fontWeight: 500 }}>Gợi ý nhanh:</span>
                       {["Đà Nẵng", "Hà Nội", "TP. Hồ Chí Minh", "Quảng Nam"].map((prov) => (
                         <button
                           key={prov}
                           type="button"
-                          className="button button--quiet"
-                          style={{
-                            fontSize: "0.75rem",
-                            padding: "0.15rem 0.5rem",
-                            borderRadius: "999px",
-                            border: values.shipping_province === prov ? "1px solid var(--color-wood)" : "1px solid #e2e8f0",
-                            backgroundColor: values.shipping_province === prov ? "var(--color-creamy, #faf5ef)" : "transparent",
-                          }}
+                          className={`province-pill ${values.shipping_province === prov ? "is-selected" : ""}`}
                           onClick={() => field("shipping_province", prov)}
                         >
                           {prov}

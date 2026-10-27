@@ -11,7 +11,6 @@ import { useStore } from "./providers";
 import { Breadcrumb, Button, EmptyState, ErrorState, Loading, Pagination, Price, ProductImage, Rating, SectionHeading } from "./ui";
 
 export function ProductCard({ product }: { product: Product }) {
-  const router = useRouter();
   const { user, refreshCart, notify } = useStore();
   const [busy, setBusy] = useState(false);
   const variant = product.variants?.find((item) => item.status === "ACTIVE") ?? null;
@@ -36,6 +35,7 @@ export function ProductCard({ product }: { product: Product }) {
           product_name: product.name,
           slug: product.slug,
           available_quantity: 999,
+          primary_image: product.primary_image,
         });
         await refreshCart();
         notify("Đã thêm sản phẩm vào giỏ hàng.");
@@ -372,6 +372,7 @@ export function ProductDetail({ initialProduct }: { initialProduct: Product }) {
           product_name: initialProduct.name,
           slug: initialProduct.slug,
           available_quantity: selected.available_quantity ?? 999,
+          primary_image: initialProduct.primary_image,
         });
         await refreshCart();
         if (buyNow) router.push("/gio-hang");

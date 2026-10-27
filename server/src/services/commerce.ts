@@ -30,6 +30,7 @@ export async function getCart(userId: string): Promise<Record<string, unknown>> 
   const items = await rows(
     `SELECT ci.id, ci.variant_id, ci.quantity, v.name AS variant_name, v.sku,
        v.price, p.id AS product_id, p.name AS product_name, p.slug,
+       (SELECT pi.image_url FROM product_images pi WHERE pi.product_id=p.id AND pi.is_primary=1 LIMIT 1) AS primary_image,
        GREATEST(i.quantity-i.reserved_quantity, 0) AS available_quantity,
        (v.price * ci.quantity) AS line_total
      FROM cart_items ci JOIN product_variants v ON v.id=ci.variant_id

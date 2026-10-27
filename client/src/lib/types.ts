@@ -116,6 +116,7 @@ export interface CartItem {
   slug: string;
   available_quantity: number;
   line_total: string | number;
+  primary_image?: string | null;
 }
 
 export interface Cart {
