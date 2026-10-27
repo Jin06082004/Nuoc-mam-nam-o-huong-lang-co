@@ -1514,6 +1514,48 @@ export function NotFoundContent() {
   );
 }
 
+function NavigationIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polygon points="3 11 22 2 13 21 11 13 3 11" />
+    </svg>
+  );
+}
+
+function ExternalLinkIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+      <polyline points="15 3 21 3 21 9" />
+      <line x1="10" x2="21" y1="14" y2="3" />
+    </svg>
+  );
+}
+
+function ClockIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  );
+}
+
+function BuildingIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect width="16" height="20" x="4" y="2" rx="2" ry="2" />
+      <path d="M9 22v-4h6v4" />
+      <path d="M8 6h.01" />
+      <path d="M16 6h.01" />
+      <path d="M8 10h.01" />
+      <path d="M16 10h.01" />
+      <path d="M8 14h.01" />
+      <path d="M16 14h.01" />
+    </svg>
+  );
+}
+
 export function ContactPage() {
   const { storeSettings, notify } = useStore();
   const [submitted, setSubmitted] = useState(false);
@@ -1522,6 +1564,15 @@ export function ContactPage() {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const storeName = storeSettings?.store_name || "Nước mắm Nam Ô Hương Làng Cổ";
+  const storeAddress = storeSettings?.store_address || "Tổ 97 (Nam Ô 2), Kiệt 884/74/4 Nguyễn Lương Bằng, Phường Hòa Hiệp Nam, Quận Liên Chiểu, TP. Đà Nẵng";
+  const contactPhone = storeSettings?.contact_phone || "0935 998 908";
+  const contactEmail = storeSettings?.contact_email || "huonglangco.namo@gmail.com";
+
+  const exactLat = 16.099675;
+  const exactLng = 108.136938;
+  const googleMapSearchUrl = `https://www.google.com/maps/search/?api=1&query=${exactLat},${exactLng}`;
+  const googleMapDirectionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${exactLat},${exactLng}`;
+  const googleMapEmbedUrl = `https://www.google.com/maps/embed?origin=mfe&pb=!1m3!2m1!1s${exactLat},${exactLng}!6i17!3m1!1svi!5m1!1svi`;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -1548,14 +1599,11 @@ export function ContactPage() {
           <p><strong>Đơn vị chủ quản:</strong> CÔNG TY TNHH MẮM HỒNG HƯƠNG</p>
           <p><strong>Người đại diện:</strong> Bùi Thanh Phú (Giám đốc / Nghệ nhân làng nghề)</p>
           <p><strong>Mã số thuế:</strong> 0401801078 (Chi cục Thuế Q. Liên Chiểu, TP. Đà Nẵng)</p>
-          <p><strong>Địa chỉ xưởng:</strong> {storeSettings?.store_address || "Tổ 97 (Nam Ô 2), Kiệt 884/74/4 Nguyễn Lương Bằng, Phường Hòa Hiệp Nam, Quận Liên Chiểu, TP. Đà Nẵng"}</p>
-          <p><strong>Hotline / Zalo đặt hàng:</strong> <a href={`tel:${storeSettings?.contact_phone || "0935998908"}`}><strong>{storeSettings?.contact_phone || "0935 998 908"}</strong></a></p>
-          <p><strong>Email:</strong> <a href={`mailto:${storeSettings?.contact_email || "huonglangco.namo@gmail.com"}`}>{storeSettings?.contact_email || "huonglangco.namo@gmail.com"}</a></p>
+          <p><strong>Địa chỉ xưởng:</strong> {storeAddress}</p>
+          <p><strong>Hotline / Zalo đặt hàng:</strong> <a href={`tel:${contactPhone}`}><strong>{contactPhone}</strong></a></p>
+          <p><strong>Email:</strong> <a href={`mailto:${contactEmail}`}>{contactEmail}</a></p>
           <p><strong>Fanpage Facebook:</strong> <a href="https://www.facebook.com/huonglangco.vn" target="_blank" rel="noopener noreferrer">facebook.com/huonglangco.vn ↗</a></p>
-          <p><strong>Giờ đón khách du lịch trải nghiệm:</strong> 07:30 – 17:30 (Tất cả các ngày trong tuần, kể cả Thứ 7 và Chủ Nhật).</p>
-
-          <h2 style={{ marginTop: "2rem" }}>Chỉ dẫn đường đi</h2>
-          <p>Từ trung tâm TP. Đà Nẵng, quý khách đi dọc đường Nguyễn Tất Thành hoặc Tôn Đức Thắng nối dài Nguyễn Lương Bằng hướng về phía chân đèo Hải Vân. Đến số 884 Nguyễn Lương Bằng (gần cầu Nam Ô), rẽ vào Kiệt 884 đi thẳng khoảng 200m là đến cổng xưởng mắm truyền thống Hương Làng Cổ.</p>
+          <p><strong>Giờ đón khách du lịch trải nghiệm:</strong> 07:30 – 17:30 (Tất cả các ngày trong tuần, kể cả Thứ 7 và Chủ Nhật, miễn phí vào cổng).</p>
         </section>
 
         <aside className="summary-card" style={{ flex: "1 1 40%" }}>
@@ -1589,6 +1637,129 @@ export function ContactPage() {
           )}
         </aside>
       </div>
+
+      {/* PHẦN CHỈ DẪN ĐƯỜNG ĐI GẮN TOÀN BỘ GIAO DIỆN GOOGLE MAP VÀO PHÍA DƯỚI ĐIỂM CHỈ DẪN */}
+      <section id="chi-dan-duong-di" style={{ marginTop: "4rem", paddingBottom: "2.5rem" }}>
+        <div style={{ marginBottom: "1.75rem" }}>
+          <p className="eyebrow" style={{ marginBottom: "6px" }}>Định vị & Chỉ dẫn đường đi</p>
+          <h2 style={{ margin: "0 0 8px" }}>Chỉ dẫn đường đi tới xưởng sản xuất</h2>
+          <p style={{ color: "var(--color-muted)", margin: 0, fontSize: "0.95rem" }}>
+            Tọa lạc tại làng nghề cổ truyền Nam Ô ngay dưới chân đèo Hải Vân. Quý khách có thể theo dõi các điểm chỉ dẫn bên dưới và tra cứu lộ trình trực tiếp trên bản đồ Google Maps.
+          </p>
+        </div>
+
+        {/* CÁC ĐIỂM CHỈ DẪN NẰM Ở PHÍA TRÊN */}
+        <div className="directions-cards-grid">
+          {/* Thẻ 1: Thông tin cơ sở & Điểm đến */}
+          <div className="direction-card">
+            <div>
+              <div className="direction-card-title">
+                <span className="icon-badge"><BuildingIcon /></span>
+                <span>Cơ Sở Sản Xuất Hương Làng Cổ</span>
+              </div>
+              <div className="direction-card-body">
+                <p><strong>Đơn vị:</strong> CÔNG TY TNHH MẮM HỒNG HƯƠNG</p>
+                <p><strong>Người đại diện:</strong> Nghệ nhân Bùi Thanh Phú</p>
+                <p><strong>Mã số thuế:</strong> 0401801078 (Chi cục Thuế Q. Liên Chiểu)</p>
+                <p><strong>Địa chỉ xưởng:</strong> {storeAddress}</p>
+                <p><strong>Tọa độ GPS:</strong> <code>{exactLat}° N, {exactLng}° E</code></p>
+              </div>
+            </div>
+          </div>
+
+          {/* Thẻ 2: Hướng dẫn 2 tuyến đường di chuyển */}
+          <div className="direction-card">
+            <div>
+              <div className="direction-card-title">
+                <span className="icon-badge">🚗</span>
+                <span>Điểm Chỉ Dẫn Tuyến Đường Tới Xưởng</span>
+              </div>
+              <div className="direction-card-body">
+                <p>
+                  <strong>Tuyến 1 (Đường biển Nguyễn Tất Thành):</strong> Từ trung tâm Đà Nẵng, đi dọc đại lộ ven biển ngắm vịnh tới cuối đường, rẽ trái vào Nguyễn Lương Bằng, đi tiếp 300m đến số <strong>884 Nguyễn Lương Bằng</strong> (ngay chân cầu Nam Ô), rẽ vào Kiệt 884 đi 200m là đến cổng xưởng.
+                </p>
+                <p>
+                  <strong>Tuyến 2 (Trục Quốc lộ 1A):</strong> Từ Cầu vượt Ngã Ba Huế, đi thẳng Tôn Đức Thắng nối dài Nguyễn Lương Bằng tới Kiệt 884 bên tay phải.
+                </p>
+                <p style={{ color: "var(--color-wood)", fontWeight: 600 }}>
+                  🎯 Xe máy, ô tô 4 – 16 chỗ vào tận cổng xưởng có sân đỗ rộng và chỗ quay đầu thuận tiện.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Thẻ 3: Thời gian tiếp đón & Điều hướng nhanh */}
+          <div className="direction-card">
+            <div>
+              <div className="direction-card-title">
+                <span className="icon-badge"><ClockIcon /></span>
+                <span>Đón Khách & Điều Hướng GPS</span>
+              </div>
+              <div className="direction-card-body">
+                <p>
+                  <strong>Giờ mở cửa đón khách:</strong><br />
+                  07:30 – 17:30 (Mở cửa tất cả các ngày trong tuần, kể cả Thứ 7 và Chủ Nhật — Miễn phí tham quan).
+                </p>
+                <p>
+                  <strong>Hotline hỗ trợ chỉ đường 24/7:</strong><br />
+                  <a href={`tel:${contactPhone}`} style={{ color: "var(--color-wood)", fontWeight: 700, fontSize: "1.05rem" }}>
+                    {contactPhone}
+                  </a>
+                </p>
+                <p><strong>Email:</strong> <a href={`mailto:${contactEmail}`}>{contactEmail}</a></p>
+              </div>
+            </div>
+
+            <div style={{ marginTop: "16px", display: "flex", flexDirection: "column", gap: "10px" }}>
+              <a
+                href={googleMapDirectionsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-map-directions"
+              >
+                <NavigationIcon /> Chỉ Đường Trên Google Maps (GPS) ↗
+              </a>
+              <a
+                href={googleMapSearchUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-map-external"
+              >
+                <ExternalLinkIcon /> Mở Ứng Dụng Google Maps ↗
+              </a>
+            </div>
+          </div>
+        </div>
+
+        {/* HIỂN THỊ CẢ GIAO DIỆN CỦA GOOGLE MAP VÀO PHÍA DƯỚI ĐIỂM CHỈ DẪN */}
+        <div className="map-fullwidth-wrapper">
+          <div className="map-fullwidth-header">
+            <div className="map-live-pill">
+              <span className="map-live-dot" />
+              <span>GIAO DIỆN GOOGLE MAPS — VỊ TRÍ CHÍNH XÁC: KIỆT 884 NGUYỄN LƯƠNG BẰNG, NAM Ô, ĐÀ NẴNG</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", fontSize: "0.84rem", color: "var(--color-muted)" }}>
+              <span>GPS: <strong>{exactLat}, {exactLng}</strong></span>
+              <a
+                href={googleMapDirectionsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: "var(--color-wood)", fontWeight: 600, textDecoration: "underline" }}
+              >
+                Dẫn đường trực tiếp ↗
+              </a>
+            </div>
+          </div>
+          <iframe
+            src={googleMapEmbedUrl}
+            className="map-fullwidth-iframe"
+            title="Giao diện đầy đủ của Google Maps hiển thị vị trí chính xác xưởng Nước mắm Nam Ô Hương Làng Cổ"
+            loading="lazy"
+            allowFullScreen
+            referrerPolicy="no-referrer-when-downgrade"
+          />
+        </div>
+      </section>
     </main>
   );
 }

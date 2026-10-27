@@ -39,3 +39,8 @@ uploads/
 # IDE & Editor
 .vscode/
 
+# Archives & Bundles
+*.tar.gz
+*.zip
+web-bundle.tar.gz
+
